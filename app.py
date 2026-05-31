@@ -139,6 +139,14 @@ tab_bull, tab_trend, tab_history = st.tabs(["🔄 转牛信号", "📈 趋势信
 # ── Tab 1: 转牛信号 ─────────────────────────────────────────────
 
 with tab_bull:
+    with st.expander("📋 转牛选股策略说明"):
+        st.markdown("""
+**核心逻辑：弱势股首次突破60日均线**
+
+1. 近30日中 ≥20天 收盘价 < MA60（确认前期弱势）
+2. 今日收盘站上MA60（首次突破）
+   - 或昨日首次站上 + 今日确认
+""")
     st.caption(f"状态: done={st.session_state.get('bull_etf_done')} scan={st.session_state.get('bull_scanning')}")
     if st.button("🔄 刷新转牛数据", type="primary", width='stretch', key="refresh_bull"):
         st.cache_data.clear()
@@ -178,6 +186,17 @@ with tab_bull:
 # ── Tab 2: 趋势信号 ──────────────────────────────────────────────
 
 with tab_trend:
+    with st.expander("📋 趋势选股策略说明"):
+        st.markdown("""
+**核心逻辑：中期均线多头排列，未过度透支**
+
+- 近13日中 ≥10天 收盘价 > MA5
+- 近13日 全部 收盘价 > MA15
+- 今日收盘价 > MA5
+- 今日涨跌幅 ≤ 7%
+
+**ETF 额外宽松：** 近15日 ≥10天 收盘价 > MA5
+""")
     if st.button("🔄 刷新趋势数据", type="primary", width='stretch', key="refresh_trend"):
         st.cache_data.clear()
         st.session_state.pop("trend_etf", None)

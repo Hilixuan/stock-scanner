@@ -237,7 +237,7 @@ def scan_trend_stocks(histories, stock_name_map):
 
 
 def check_trend_etf(df):
-    """ETF趋势条件: 近15日 ≥10天收盘>MA5, 且15天全部收盘>MA15"""
+    """ETF趋势条件: 近15日 ≥10天收盘>MA5, 且15天全部收盘>MA15, 且今日收盘>MA5, 且今日涨幅≤7%"""
     if df is None or len(df) < 30:
         return False, None
     df = df.copy().sort_values("日期").reset_index(drop=True)
@@ -249,7 +249,10 @@ def check_trend_etf(df):
     last15 = df[valid].iloc[-15:]
     above_ma5 = (last15["收盘"] > last15["MA5"]).sum()
     above_ma15 = (last15["收盘"] > last15["MA15"]).sum()
-    return (above_ma5 >= 10 and above_ma15 == 15), df
+    latest = df.iloc[-1]
+    today_above_ma5 = latest["收盘"] > latest["MA5"]
+    today_chg_limit = latest.get("涨跌幅", 0) <= 7
+    return (above_ma5 >= 10 and above_ma15 == 15 and today_above_ma5 and today_chg_limit), df
 
 
 def scan_trend_etfs(etf_data):

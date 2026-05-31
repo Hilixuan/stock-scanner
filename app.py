@@ -153,11 +153,8 @@ with tab_bull:
         st.session_state.bull_etf_done = False
         st.session_state.bull_stock_done = False
 
-    _bull_scanning = st.session_state.get("bull_scanning", False)
     _bull_done = st.session_state.get("bull_etf_done", False)
-    if _bull_scanning:
-        pass
-    elif not _bull_done:
+    if not _bull_done:
         try:
             run_turn_bull_scan()
         except Exception as ex:
@@ -193,8 +190,7 @@ with tab_trend:
         st.session_state.pop("trend_date", None)
         st.session_state.trend_done = False
 
-    _trend_scanning = st.session_state.get("trend_scanning", False)
-    if not _trend_scanning and st.session_state.get("trend_done") is False:
+    if st.session_state.get("trend_done") is False:
         try:
             run_trend_scan()
         except Exception as ex:

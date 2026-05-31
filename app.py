@@ -150,6 +150,15 @@ with tab_trend:
 
 **ETF 额外宽松：** 近15日 ≥10天 收盘价 > MA5
 """)
+    _done = st.session_state.get("trend_done")
+    if _done is None:
+        st.info("点击上方按钮开始扫描趋势信号")
+    elif not _done:
+        try:
+            run_trend_scan()
+        except Exception as ex:
+            st.error(f"趋势扫描异常: {ex}")
+
     if st.button("🔄 刷新趋势数据", type="primary", width='stretch', key="refresh_trend"):
         st.cache_data.clear()
         st.session_state.pop("trend_etf", None)
@@ -157,12 +166,7 @@ with tab_trend:
         st.session_state.pop("trend_scanning", None)
         st.session_state.pop("trend_date", None)
         st.session_state.trend_done = False
-
-    if st.session_state.get("trend_done") is False:
-        try:
-            run_trend_scan()
-        except Exception as ex:
-            st.error(f"趋势扫描异常: {ex}")
+        st.rerun()
 
     _done = st.session_state.get("trend_done")
 
@@ -195,6 +199,15 @@ with tab_bull:
    - 或昨日首次站上 + 今日确认
 """)
     st.caption(f"状态: done={st.session_state.get('bull_etf_done')} scan={st.session_state.get('bull_scanning')}")
+    _bull_done = st.session_state.get("bull_etf_done")
+    if _bull_done is None:
+        st.info("点击上方按钮开始扫描转牛信号")
+    elif not _bull_done:
+        try:
+            run_turn_bull_scan()
+        except Exception as ex:
+            st.error(f"转牛扫描异常: {ex}")
+
     if st.button("🔄 刷新转牛数据", type="primary", width='stretch', key="refresh_bull"):
         st.cache_data.clear()
         st.session_state.pop("bull_etf", None)
@@ -203,15 +216,9 @@ with tab_bull:
         st.session_state.pop("bull_date", None)
         st.session_state.bull_etf_done = False
         st.session_state.bull_stock_done = False
+        st.rerun()
 
-    _bull_done = st.session_state.get("bull_etf_done", False)
-    if not _bull_done:
-        try:
-            run_turn_bull_scan()
-        except Exception as ex:
-            st.error(f"转牛扫描异常: {ex}")
-
-    _bull_done = st.session_state.get("bull_etf_done", False)
+    _bull_done = st.session_state.get("bull_etf_done")
 
     st.subheader("📊 ETF 转牛信号")
     bull_etf = st.session_state.get("bull_etf", [])

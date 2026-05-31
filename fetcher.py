@@ -59,31 +59,48 @@ def get_stock_list():
     if cached is not None and _cache_fresh(STOCK_LIST_FILE):
         return cached
 
-    lg = bs.login()
-    if lg.error_code != "0":
-        if cached is not None:
-            return cached
-        raise ConnectionError(lg.error_msg)
-    try:
-        today = get_trading_date()
-        rs = bs.query_all_stock(day=today)
-        rows = []
-        while rs.next():
-            rows.append(rs.get_row_data())
-    finally:
-        bs.logout()
+    def _parse_baostock():
+        lg = bs.login()
+        if lg.error_code != "0":
+            return None
+        try:
+            today = get_trading_date()
+            rs = bs.query_all_stock(day=today)
+            rows = []
+            while rs.next():
+                rows.append(rs.get_row_data())
+            if not rows:
+                return None
+            df = pd.DataFrame(rows, columns=["code_prefix", "type_code", "名称"])
+            df["代码"] = df["code_prefix"].str.replace(r"^(sh|sz)\.", "", regex=True)
+            is_stock = df["code_prefix"].str.match(r"^(sh\.60|sz\.00)")
+            is_stock &= ~df["code_prefix"].str.match(r"^sh\.00")
+            df = df[is_stock]
+            non_st = ~df["名称"].str.contains("ST|退|PT", na=False)
+            df = df[non_st]
+            df = df[["代码", "名称"]].reset_index(drop=True)
+            return df
+        except Exception:
+            return None
+        finally:
+            bs.logout()
 
-    df = pd.DataFrame(rows, columns=["code_prefix", "type_code", "名称"])
-    df["代码"] = df["code_prefix"].str.replace(r"^(sh|sz)\.", "", regex=True)
-    is_stock = df["code_prefix"].str.match(r"^(sh\.60|sz\.00)")
-    is_stock &= ~df["code_prefix"].str.match(r"^sh\.00")
-    df = df[is_stock]
-    non_st = ~df["名称"].str.contains("ST|退|PT", na=False)
-    df = df[non_st]
-    df = df[["代码", "名称"]].reset_index(drop=True)
+    df = _parse_baostock()
+    if df is not None and len(df) > 0:
+        _disk_save(df, STOCK_LIST_FILE)
+        return df
 
-    _disk_save(df, STOCK_LIST_FILE)
-    return df
+    # Fallback: static CSV
+    csv_path = Path(__file__).parent / "stock_list.csv"
+    if csv_path.exists():
+        df = pd.read_csv(csv_path)
+        df = df[df["代码"].notna() & (df["代码"] != "")]
+        _disk_save(df, STOCK_LIST_FILE)
+        return df
+
+    if cached is not None:
+        return cached
+    raise ConnectionError("无法获取股票列表（baostock 失败且无本地 CSV 缓存）")
 
 
 # ── market cap (Tencent finance API) ──────────────────────────────

@@ -211,7 +211,7 @@ def check_trend(df):
     above_ma15 = (last13["收盘"] > last13["MA15"]).sum()
     latest = df.iloc[-1]
     today_above_ma5 = latest["收盘"] > latest["MA5"]
-    today_chg_limit = 0 < latest.get("涨跌幅", 0) <= 7
+    today_chg_limit = abs(latest.get("涨跌幅", 0)) <= 7
     return (above_ma5 >= 10 and above_ma15 == 13 and today_above_ma5 and today_chg_limit), df
 
 
@@ -251,7 +251,7 @@ def check_trend_etf(df):
     above_ma15 = (last15["收盘"] > last15["MA15"]).sum()
     latest = df.iloc[-1]
     today_above_ma5 = latest["收盘"] > latest["MA5"]
-    today_chg_limit = 0 < latest.get("涨跌幅", 0) <= 7
+    today_chg_limit = abs(latest.get("涨跌幅", 0)) <= 7
     return (above_ma5 >= 10 and above_ma15 == 15 and today_above_ma5 and today_chg_limit), df
 
 

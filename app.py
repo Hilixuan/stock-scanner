@@ -31,23 +31,9 @@ start_date = get_start_date()
 # ── 自动初始化：从缓存加载今日数据，或触发自动扫描 ──────────────
 
 if "init_done" not in st.session_state:
-    snap = sh.get_snapshot(today_str)
-    if snap:
-        tb = snap.get("turn_bull", {})
-        st.session_state.bull_etf = tb.get("etfs", [])
-        st.session_state.bull_stock = tb.get("stocks", [])
-        st.session_state.bull_etf_done = True
-        st.session_state.bull_stock_done = True
-        st.session_state.bull_date = today_str
-        tr = snap.get("trend", {})
-        st.session_state.trend_etf = tr.get("etfs", [])
-        st.session_state.trend_stock = tr.get("stocks", [])
-        st.session_state.trend_done = True
-        st.session_state.trend_date = today_str
-    else:
-        st.session_state.bull_etf_done = False
-        st.session_state.bull_stock_done = False
-        st.session_state.trend_done = False
+    st.session_state.bull_etf_done = False
+    st.session_state.bull_stock_done = False
+    st.session_state.trend_done = False
     st.session_state.init_done = True
 
 # ── 全量转牛扫描（ETF + 个股，单次完成） ────────────────────────
@@ -144,7 +130,6 @@ tab_bull, tab_trend, tab_history = st.tabs(["🔄 转牛信号", "📈 趋势信
 # ── Tab 1: 转牛信号 ─────────────────────────────────────────────
 
 with tab_bull:
-    st.caption(f"[debug] td={today_str} done={st.session_state.get('bull_etf_done')} scanning={st.session_state.get('bull_scanning')}")
     if st.button("🔄 刷新转牛数据", type="primary", width='stretch', key="refresh_bull"):
         st.cache_data.clear()
         st.session_state.pop("bull_etf", None)

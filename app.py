@@ -134,56 +134,9 @@ def run_trend_scan():
 #  页面布局
 # ══════════════════════════════════════════════════════════════════
 
-tab_bull, tab_trend, tab_history = st.tabs(["🔄 转牛信号", "📈 趋势信号", "📜 历史信号"])
+tab_trend, tab_bull, tab_history = st.tabs(["📈 趋势信号", "🔄 转牛信号", "📜 历史信号"])
 
-# ── Tab 1: 转牛信号 ─────────────────────────────────────────────
-
-with tab_bull:
-    with st.expander("📋 转牛选股策略说明"):
-        st.markdown("""
-**核心逻辑：弱势股首次突破60日均线**
-
-1. 近30日中 ≥20天 收盘价 < MA60（确认前期弱势）
-2. 今日收盘站上MA60（首次突破）
-   - 或昨日首次站上 + 今日确认
-""")
-    st.caption(f"状态: done={st.session_state.get('bull_etf_done')} scan={st.session_state.get('bull_scanning')}")
-    if st.button("🔄 刷新转牛数据", type="primary", width='stretch', key="refresh_bull"):
-        st.cache_data.clear()
-        st.session_state.pop("bull_etf", None)
-        st.session_state.pop("bull_stock", None)
-        st.session_state.pop("bull_scanning", None)
-        st.session_state.pop("bull_date", None)
-        st.session_state.bull_etf_done = False
-        st.session_state.bull_stock_done = False
-
-    _bull_done = st.session_state.get("bull_etf_done", False)
-    if not _bull_done:
-        try:
-            run_turn_bull_scan()
-        except Exception as ex:
-            st.error(f"转牛扫描异常: {ex}")
-
-    _bull_done = st.session_state.get("bull_etf_done", False)
-
-    st.subheader("📊 ETF 转牛信号")
-    bull_etf = st.session_state.get("bull_etf", [])
-    if bull_etf:
-        st.success(f"ETF转牛: {len(bull_etf)} 只")
-    elif _bull_done:
-        st.info("ETF转牛: 无满足条件")
-    render_turn_bull_etf_results(bull_etf)
-
-    st.subheader("📈 个股转牛信号")
-    if _bull_done:
-        bull_stock = st.session_state.get("bull_stock", [])
-        if bull_stock:
-            st.success(f"个股转牛: {len(bull_stock)} 只")
-        else:
-            st.info("个股转牛: 无满足条件")
-        render_turn_bull_stock_results(bull_stock)
-
-# ── Tab 2: 趋势信号 ──────────────────────────────────────────────
+# ── Tab 1: 趋势信号 ──────────────────────────────────────────────
 
 with tab_trend:
     with st.expander("📋 趋势选股策略说明"):
@@ -229,6 +182,53 @@ with tab_trend:
         else:
             st.info("个股: 无满足条件")
         render_trend_stock_results(trend_stock)
+
+# ── Tab 2: 转牛信号 ─────────────────────────────────────────────
+
+with tab_bull:
+    with st.expander("📋 转牛选股策略说明"):
+        st.markdown("""
+**核心逻辑：弱势股首次突破60日均线**
+
+1. 近30日中 ≥20天 收盘价 < MA60（确认前期弱势）
+2. 今日收盘站上MA60（首次突破）
+   - 或昨日首次站上 + 今日确认
+""")
+    st.caption(f"状态: done={st.session_state.get('bull_etf_done')} scan={st.session_state.get('bull_scanning')}")
+    if st.button("🔄 刷新转牛数据", type="primary", width='stretch', key="refresh_bull"):
+        st.cache_data.clear()
+        st.session_state.pop("bull_etf", None)
+        st.session_state.pop("bull_stock", None)
+        st.session_state.pop("bull_scanning", None)
+        st.session_state.pop("bull_date", None)
+        st.session_state.bull_etf_done = False
+        st.session_state.bull_stock_done = False
+
+    _bull_done = st.session_state.get("bull_etf_done", False)
+    if not _bull_done:
+        try:
+            run_turn_bull_scan()
+        except Exception as ex:
+            st.error(f"转牛扫描异常: {ex}")
+
+    _bull_done = st.session_state.get("bull_etf_done", False)
+
+    st.subheader("📊 ETF 转牛信号")
+    bull_etf = st.session_state.get("bull_etf", [])
+    if bull_etf:
+        st.success(f"ETF转牛: {len(bull_etf)} 只")
+    elif _bull_done:
+        st.info("ETF转牛: 无满足条件")
+    render_turn_bull_etf_results(bull_etf)
+
+    st.subheader("📈 个股转牛信号")
+    if _bull_done:
+        bull_stock = st.session_state.get("bull_stock", [])
+        if bull_stock:
+            st.success(f"个股转牛: {len(bull_stock)} 只")
+        else:
+            st.info("个股转牛: 无满足条件")
+        render_turn_bull_stock_results(bull_stock)
 
 # ── Tab 3: 历史信号 ──────────────────────────────────────────────
 

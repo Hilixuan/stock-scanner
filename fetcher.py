@@ -120,23 +120,27 @@ def get_market_cap(codes):
         return cached
     results = {}
     batch_size = 50
-    for i in range(0, len(codes), batch_size):
-        batch = codes[i:i + batch_size]
+    def fetch_batch(batch):
         symbols = [f"sh{c}" if c.startswith("6") else f"sz{c}" for c in batch]
         url = "http://qt.gtimg.cn/q=" + ",".join(symbols)
         try:
             r = requests.get(url, timeout=8)
+            out = {}
             for line in r.text.strip().split("\n"):
                 parts = line.split("~")
                 if len(parts) > 44:
                     c = parts[2][2:] if parts[2].startswith(("sh","sz")) else parts[2]
-                    mcap_str = parts[44]
                     try:
-                        results[c] = round(float(mcap_str), 2)
+                        out[c] = round(float(parts[44]), 2)
                     except (ValueError, TypeError):
                         pass
+            return out
         except Exception:
-            pass
+            return {}
+    batches = [codes[i:i + batch_size] for i in range(0, len(codes), batch_size)]
+    with ThreadPoolExecutor(max_workers=min(20, len(batches))) as ex:
+        for res in ex.map(fetch_batch, batches):
+            results.update(res)
     _disk_save(results, MCAP_CACHE_FILE)
     return results
 

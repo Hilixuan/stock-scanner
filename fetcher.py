@@ -105,8 +105,19 @@ def get_stock_list():
 
 # ── market cap (Tencent finance API) ──────────────────────────────
 
+MCAP_CACHE_FILE = CACHE_DIR / "mcap_cache.pkl"
+
+def _mcap_cache_fresh():
+    if not MCAP_CACHE_FILE.exists():
+        return False
+    age = datetime.now() - datetime.fromtimestamp(MCAP_CACHE_FILE.stat().st_mtime)
+    return age.total_seconds() < 86400
+
 @st.cache_data(ttl=86400, show_spinner=False)
 def get_market_cap(codes):
+    cached = _disk_load(MCAP_CACHE_FILE)
+    if cached is not None and _mcap_cache_fresh():
+        return cached
     results = {}
     batch_size = 50
     for i in range(0, len(codes), batch_size):
@@ -126,6 +137,7 @@ def get_market_cap(codes):
                         pass
         except Exception:
             pass
+    _disk_save(results, MCAP_CACHE_FILE)
     return results
 
 

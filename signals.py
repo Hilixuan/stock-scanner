@@ -156,16 +156,12 @@ def scan_turn_bull_stocks(histories, stock_name_map):
     signals = []
     for code, df in histories.items():
         try:
-            mcap = df.get("总市值(亿)", pd.Series([0])).iloc[-1]
-            if mcap < 100:
-                continue
             is_signal, detail_df = check_turn_bull(df)
             if is_signal:
                 latest = detail_df.iloc[-1]
                 signals.append({
                     "代码": code,
                     "名称": stock_name_map.get(code, ""),
-                    "总市值(亿)": round(mcap, 0),
                     "现价": round(float(latest["收盘"]), 2),
                     "涨跌幅": f"{latest.get('涨跌幅', 0):+.2f}%",
                     "MA5": round(float(latest["MA5"]), 2),
@@ -220,16 +216,12 @@ def scan_trend_stocks(histories, stock_name_map):
     signals = []
     for code, df in histories.items():
         try:
-            mcap = df.get("总市值(亿)", pd.Series([0])).iloc[-1]
-            if mcap < 100:
-                continue
             is_signal, detail_df = check_trend(df)
             if is_signal:
                 latest = detail_df.iloc[-1]
                 signals.append({
                     "代码": code,
                     "名称": stock_name_map.get(code, ""),
-                    "总市值(亿)": round(mcap, 0),
                     "现价": round(float(latest["收盘"]), 2),
                     "涨跌幅": f"{latest.get('涨跌幅', 0):+.2f}%",
                     "MA5": round(float(latest["MA5"]), 2),

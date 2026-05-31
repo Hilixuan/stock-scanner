@@ -130,6 +130,7 @@ tab_bull, tab_trend, tab_history = st.tabs(["🔄 转牛信号", "📈 趋势信
 # ── Tab 1: 转牛信号 ─────────────────────────────────────────────
 
 with tab_bull:
+    st.caption(f"状态: done={st.session_state.get('bull_etf_done')} scan={st.session_state.get('bull_scanning')}")
     if st.button("🔄 刷新转牛数据", type="primary", width='stretch', key="refresh_bull"):
         st.cache_data.clear()
         st.session_state.pop("bull_etf", None)

@@ -50,39 +50,24 @@ if "init_done" not in st.session_state:
         st.session_state.trend_done = False
     st.session_state.init_done = True
 
-# ── ETF转牛扫描 ───────────────────────────────────────────────────
+# ── 全量转牛扫描（ETF + 个股，单次完成） ────────────────────────
 
-def scan_etf_bull():
+def run_turn_bull_scan():
     st.session_state.bull_scanning = True
     try:
-        with st.status("正在扫描ETF转牛信号...", expanded=True) as status:
+        with st.status("正在扫描转牛信号...", expanded=True) as status:
             st.write("获取ETF行情数据...")
             etf_data = fetch_etf_histories(start_date, etf_list=ALL_ETFS)
             st.write(f"✓ {len(etf_data)} 只ETF")
-            signals = scan_turn_bull_etfs(etf_data)
-            status.update(
-                label=f"ETF转牛完成 — {len(signals)} 只",
-                state="complete", expanded=False,
-            )
-        st.session_state.bull_etf = signals
-        st.session_state.bull_etf_done = True
-    finally:
-        st.session_state.bull_scanning = False
+            etf_signals = scan_turn_bull_etfs(etf_data)
 
-
-# ── 个股转牛扫描 ──────────────────────────────────────────────────
-
-def scan_stock_bull():
-    st.session_state.bull_scanning = True
-    try:
-        with st.status("正在扫描个股转牛信号...", expanded=True) as status:
             st.write("获取大市值股票列表(≥100亿)...")
             stock_df = get_bigcap_stocks()
             stock_codes = stock_df["代码"].tolist()
             stock_name_map = dict(zip(stock_df["代码"], stock_df["名称"]))
-            st.write(f"✓ 大市值: {len(stock_codes)} 只")
+            st.write(f"✓ {len(stock_codes)} 只")
 
-            st.write("获取行情...")
+            st.write("获取个股日线行情...")
             progress_bar = st.progress(0)
             progress_text = st.empty()
             def update_progress(completed, total):
@@ -95,19 +80,19 @@ def scan_stock_bull():
             st.write(f"✓ {len(histories)} 只股票日线数据")
 
             st.write("计算转牛信号...")
-            signals = scan_turn_bull_stocks(histories, stock_name_map)
-            st.write(f"✓ 个股转牛 {len(signals)} 只")
+            stock_signals = scan_turn_bull_stocks(histories, stock_name_map)
+            st.write(f"✓ 个股转牛 {len(stock_signals)} 只")
+
             status.update(
-                label=f"个股转牛完成 — {len(signals)} 只",
+                label=f"转牛完成 — ETF {len(etf_signals)} 只, 个股 {len(stock_signals)} 只",
                 state="complete", expanded=False,
             )
-        st.session_state.bull_stock = signals
+        st.session_state.bull_etf = etf_signals
+        st.session_state.bull_stock = stock_signals
+        st.session_state.bull_etf_done = True
         st.session_state.bull_stock_done = True
         st.session_state.bull_date = today_str
-        sh.save_turn_bull_snapshot(
-            st.session_state.get("bull_stock", []),
-            st.session_state.get("bull_etf", []),
-        )
+        sh.save_turn_bull_snapshot(stock_signals, etf_signals)
     finally:
         st.session_state.bull_scanning = False
 
@@ -122,7 +107,6 @@ def run_trend_scan():
             etf_data = fetch_etf_histories(start_date, etf_list=ALL_ETFS)
             st.write(f"✓ {len(etf_data)} 只ETF")
             etf_signals = scan_trend_etfs(etf_data)
-            st.write(f"ETF趋势信号: {len(etf_signals)} 只")
 
             st.write("获取大市值股票行情(≥100亿)...")
             stock_df = get_bigcap_stocks()
@@ -170,32 +154,27 @@ with tab_bull:
         st.session_state.bull_stock_done = False
 
     _bull_scanning = st.session_state.get("bull_scanning", False)
+    _bull_done = st.session_state.get("bull_etf_done", False)
     if _bull_scanning:
         pass
-    else:
-        _e = st.session_state.get("bull_etf_done")
-        _s = st.session_state.get("bull_stock_done")
-        if _e is False:
-            scan_etf_bull()
-        elif _e is True and _s is not True:
-            try:
-                scan_stock_bull()
-            except Exception as ex:
-                st.error(f"个股扫描异常: {ex}")
+    elif not _bull_done:
+        try:
+            run_turn_bull_scan()
+        except Exception as ex:
+            st.error(f"转牛扫描异常: {ex}")
 
-    _e = st.session_state.get("bull_etf_done")
-    _s = st.session_state.get("bull_stock_done")
+    _bull_done = st.session_state.get("bull_etf_done", False)
 
     st.subheader("📊 ETF 转牛信号")
     bull_etf = st.session_state.get("bull_etf", [])
     if bull_etf:
         st.success(f"ETF转牛: {len(bull_etf)} 只")
-    elif _e:
+    elif _bull_done:
         st.info("ETF转牛: 无满足条件")
     render_turn_bull_etf_results(bull_etf)
 
     st.subheader("📈 个股转牛信号")
-    if _s:
+    if _bull_done:
         bull_stock = st.session_state.get("bull_stock", [])
         if bull_stock:
             st.success(f"个股转牛: {len(bull_stock)} 只")

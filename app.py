@@ -83,7 +83,9 @@ def run_turn_bull_scan():
         st.session_state.bull_etf_done = True
         st.session_state.bull_stock_done = True
         st.session_state.bull_date = today_str
-        sh.save_turn_bull_snapshot(stock_signals, etf_signals)
+        now_hour = datetime.now().hour
+        if now_hour >= 15:
+            sh.save_turn_bull_snapshot(stock_signals, etf_signals)
     finally:
         st.session_state.bull_scanning = False
 
@@ -121,7 +123,9 @@ def run_trend_scan():
         st.session_state.trend_stock = stock_signals
         st.session_state.trend_done = True
         st.session_state.trend_date = today_str
-        sh.save_trend_snapshot(stock_signals, etf_signals)
+        now_hour = datetime.now().hour
+        if now_hour >= 15:
+            sh.save_trend_snapshot(stock_signals, etf_signals)
     finally:
         st.session_state.trend_scanning = False
 

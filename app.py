@@ -3,7 +3,7 @@ from datetime import datetime
 
 from config import HISTORY_DAYS, SECTOR_ETFS, OVERSEAS_ETFS, get_trading_date
 from fetcher import (
-    get_stock_list, get_start_date,
+    get_bigcap_stocks, get_start_date,
     fetch_all_histories, fetch_etf_histories,
 )
 from signals import scan_turn_bull_stocks, scan_turn_bull_etfs, scan_trend_stocks, scan_trend_etfs
@@ -76,13 +76,13 @@ def scan_stock_bull():
     st.session_state.bull_scanning = True
     try:
         with st.status("正在扫描个股转牛信号...", expanded=True) as status:
-            st.write("获取股票列表...")
-            stock_df = get_stock_list()
+            st.write("获取大市值股票列表(≥100亿)...")
+            stock_df = get_bigcap_stocks()
             stock_codes = stock_df["代码"].tolist()
             stock_name_map = dict(zip(stock_df["代码"], stock_df["名称"]))
-            st.write(f"✓ 主板非ST: {len(stock_codes)} 只")
+            st.write(f"✓ 大市值: {len(stock_codes)} 只")
 
-            st.write("筛选市值≥100亿 + 获取行情...")
+            st.write("获取行情...")
             progress_bar = st.progress(0)
             progress_text = st.empty()
             def update_progress(completed, total):
@@ -124,8 +124,8 @@ def run_trend_scan():
             etf_signals = scan_trend_etfs(etf_data)
             st.write(f"ETF趋势信号: {len(etf_signals)} 只")
 
-            st.write("获取股票行情...")
-            stock_df = get_stock_list()
+            st.write("获取大市值股票行情(≥100亿)...")
+            stock_df = get_bigcap_stocks()
             stock_codes = stock_df["代码"].tolist()
             stock_name_map = dict(zip(stock_df["代码"], stock_df["名称"]))
             progress_bar = st.progress(0)

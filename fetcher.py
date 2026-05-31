@@ -41,8 +41,10 @@ def _disk_save(data, path):
     tmp.replace(path)
 
 
-def _cache_fresh(path, max_age_hours=12):
+def _cache_fresh(path, max_age_hours=12, min_bytes=100):
     if not path.exists():
+        return False
+    if path.stat().st_size < min_bytes:
         return False
     age = datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)
     return age.total_seconds() < max_age_hours * 3600
@@ -197,7 +199,7 @@ def fetch_all_histories(codes, start_date, progress_callback=None):
     total = max(len(codes), 1)
 
     cached = _disk_load(ALL_HISTORIES_FILE)
-    if cached is not None and _cache_fresh(ALL_HISTORIES_FILE):
+    if cached and _cache_fresh(ALL_HISTORIES_FILE):
         if progress_callback:
             progress_callback(len(cached), total)
         return cached
@@ -230,7 +232,7 @@ def fetch_etf_histories(start_date, etf_list=None):
     end_date = datetime.now().strftime("%Y-%m-%d")
 
     cached = _disk_load(ALL_ETFS_FILE)
-    if cached is not None and _cache_fresh(ALL_ETFS_FILE):
+    if cached and _cache_fresh(ALL_ETFS_FILE):
         return cached
 
     etf_codes = [code for code, _ in etf_list]

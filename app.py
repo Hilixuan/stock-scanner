@@ -30,12 +30,16 @@ start_date = get_start_date()
 
 # ── 自动初始化 ──────────────────────────────────
 
-APP_VERSION = "v3"  # 修改此值即可触发所有容器重新扫描
+APP_VERSION = "v4"  # 修改此值即可触发容器重新初始化
 
 if st.session_state.get("app_version") != APP_VERSION:
     st.session_state.clear()
     st.session_state.app_version = APP_VERSION
     st.cache_data.clear()
+    # 清除旧磁盘缓存（防止空缓存导致不调 API）
+    from pathlib import Path
+    for f in Path("data_cache").glob("*.pkl"):
+        f.unlink()
 
 # ── 全量转牛扫描（ETF + 个股，单次完成） ────────────────────────
 

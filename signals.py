@@ -197,19 +197,22 @@ def scan_turn_bull_etfs(etf_data):
 # ── 趋势选股法 ──────────────────────────────────────────────────────
 
 def check_trend(df):
-    """趋势条件: 近15日 ≥12天收盘>MA5, 且15天全部收盘>MA15"""
+    """趋势条件: 近13日 ≥10天收盘>MA5, 且13天全部收盘>MA15, 且今日收盘>MA5"""
     if df is None or len(df) < 30:
         return False, None
     df = df.copy().sort_values("日期").reset_index(drop=True)
     df["MA5"] = df["收盘"].rolling(5).mean()
     df["MA15"] = df["收盘"].rolling(15).mean()
     valid = df["MA15"].notna()
-    if valid.sum() < 15:
+    if valid.sum() < 13:
         return False, df
-    last15 = df[valid].iloc[-15:]
-    above_ma5 = (last15["收盘"] > last15["MA5"]).sum()
-    above_ma15 = (last15["收盘"] > last15["MA15"]).sum()
-    return (above_ma5 >= 12 and above_ma15 == 15), df
+    last13 = df[valid].iloc[-13:]
+    above_ma5 = (last13["收盘"] > last13["MA5"]).sum()
+    above_ma15 = (last13["收盘"] > last13["MA15"]).sum()
+    latest = df.iloc[-1]
+    today_above_ma5 = latest["收盘"] > latest["MA5"]
+    today_chg_limit = latest.get("涨跌幅", 0) <= 7
+    return (above_ma5 >= 10 and above_ma15 == 13 and today_above_ma5 and today_chg_limit), df
 
 
 def scan_trend_stocks(histories, stock_name_map):

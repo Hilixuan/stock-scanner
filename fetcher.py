@@ -197,19 +197,20 @@ def fetch_single_history(code, start_date):
 
 def fetch_all_histories(codes, start_date, progress_callback=None):
     end_date = datetime.now().strftime("%Y-%m-%d")
+    total = max(len(codes), 1)
 
     # Full cache (12h TTL)
     cached = _disk_load(ALL_HISTORIES_FILE)
     if cached is not None and _cache_fresh(ALL_HISTORIES_FILE):
         if progress_callback:
-            progress_callback(len(cached), len(codes))
+            progress_callback(len(cached), total)
         return cached
 
     mcap = get_market_cap(codes)
     filtered_codes = [c for c in codes if mcap.get(c, 0) >= MIN_MARKET_CAP_YI]
     if not filtered_codes:
         filtered_codes = codes[:500]
-    total = len(filtered_codes)
+    total = max(len(filtered_codes), 1)
 
     # Partial checkpoint (10 min TTL) — resume support
     partial_file = CACHE_DIR / "histories_partial.pkl"

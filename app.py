@@ -178,7 +178,10 @@ with tab_bull:
         if _e is False:
             scan_etf_bull()
         elif _e is True and _s is not True:
-            scan_stock_bull()
+            try:
+                scan_stock_bull()
+            except Exception as ex:
+                st.error(f"个股扫描异常: {ex}")
 
     _e = st.session_state.get("bull_etf_done")
     _s = st.session_state.get("bull_stock_done")
@@ -213,7 +216,10 @@ with tab_trend:
 
     _trend_scanning = st.session_state.get("trend_scanning", False)
     if not _trend_scanning and st.session_state.get("trend_done") is False:
-        run_trend_scan()
+        try:
+            run_trend_scan()
+        except Exception as ex:
+            st.error(f"趋势扫描异常: {ex}")
 
     _done = st.session_state.get("trend_done")
 

@@ -160,7 +160,7 @@ tab_bull, tab_trend, tab_history = st.tabs(["🔄 转牛信号", "📈 趋势信
 # ── Tab 1: 转牛信号 ─────────────────────────────────────────────
 
 with tab_bull:
-    if st.button("🔄 刷新转牛数据", type="primary", use_container_width=True, key="refresh_bull"):
+    if st.button("🔄 刷新转牛数据", type="primary", width='stretch', key="refresh_bull"):
         st.cache_data.clear()
         st.session_state.pop("bull_etf", None)
         st.session_state.pop("bull_stock", None)
@@ -203,7 +203,7 @@ with tab_bull:
 # ── Tab 2: 趋势信号 ──────────────────────────────────────────────
 
 with tab_trend:
-    if st.button("🔄 刷新趋势数据", type="primary", use_container_width=True, key="refresh_trend"):
+    if st.button("🔄 刷新趋势数据", type="primary", width='stretch', key="refresh_trend"):
         st.cache_data.clear()
         st.session_state.pop("trend_etf", None)
         st.session_state.pop("trend_stock", None)

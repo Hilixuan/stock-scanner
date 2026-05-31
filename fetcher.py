@@ -114,7 +114,7 @@ def get_market_cap(codes):
         symbols = [f"sh{c}" if c.startswith("6") else f"sz{c}" for c in batch]
         url = "http://qt.gtimg.cn/q=" + ",".join(symbols)
         try:
-            r = requests.get(url, timeout=10)
+            r = requests.get(url, timeout=8)
             for line in r.text.strip().split("\n"):
                 parts = line.split("~")
                 if len(parts) > 44:
@@ -135,7 +135,7 @@ def _tencent_fetch_one(code, start_date, end_date):
     prefix = "sh" if code.startswith("6") else "sz"
     url = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,{start_date},,300,qfq"
     try:
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=8)
         if r.status_code != 200:
             return None
         data = r.json()
@@ -172,7 +172,7 @@ def _tencent_fetch_one(code, start_date, end_date):
         return None
 
 
-def _fetch_many(codes, start_date, end_date, progress_callback=None, max_workers=8, checkpoint_file=None, existing_results=None):
+def _fetch_many(codes, start_date, end_date, progress_callback=None, max_workers=30, checkpoint_file=None, existing_results=None):
     """Fetch K-line for multiple stocks via parallel HTTP. Saves checkpoint every 100."""
     total = len(codes)
     if total == 0:

@@ -60,7 +60,7 @@ def render_stock_results(signals):
     st.subheader("个股金叉信号")
     st.dataframe(
         styled,
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
         height=min(60 + len(df) * 38, 600),
     )
@@ -71,7 +71,7 @@ def render_stock_results(signals):
             detail_df = row["_detail_df"]
             if detail_df is not None:
                 fig = _build_chart(detail_df, row["名称"])
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
 
 def render_etf_results(signals):
@@ -111,7 +111,7 @@ def _render_etf_section(signals, title):
     st.subheader(title)
     st.dataframe(
         styled,
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
         height=min(60 + len(df) * 38, 400),
     )
@@ -121,7 +121,7 @@ def _render_etf_section(signals, title):
             detail_df = row["_detail_df"]
             if detail_df is not None:
                 fig = _build_chart(detail_df, row["名称"])
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
 
 def _render_signal_table(signals, extra_cols=None, ma_cols=None, chart_fn=None):
@@ -150,13 +150,13 @@ def _render_signal_table(signals, extra_cols=None, ma_cols=None, chart_fn=None):
         fmt["总市值(亿)"] = "{:.0f}"
     styled = display_df.style.map(_color, subset=["涨跌幅"])
     styled = styled.format(fmt)
-    st.dataframe(styled, use_container_width=True, hide_index=True, height=min(60 + len(df) * 38, 600))
+    st.dataframe(styled, width='stretch', hide_index=True, height=min(60 + len(df) * 38, 600))
     for _, row in df.iterrows():
         with st.expander(f"{row['名称']} ({row['代码']}) — ¥{row['现价']}"):
             detail_df = row.get("_detail_df")
             if detail_df is not None:
                 fig = chart_fn(detail_df, row["名称"])
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
 
 def render_turn_bull_stock_results(signals):
@@ -329,7 +329,7 @@ def render_etf_monitor(all_etfs):
     st.dataframe(
         styled,
         column_order=["代码", "名称", "现价", "涨跌幅", "MA5", "MA10", "信号"],
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
         height=min(60 + len(display_df) * 38, 600),
     )
@@ -341,4 +341,4 @@ def render_etf_monitor(all_etfs):
             detail_df = row["_detail_df"]
             if detail_df is not None:
                 fig = _build_ma_chart(detail_df, row["名称"], 5, 10)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')

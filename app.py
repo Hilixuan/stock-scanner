@@ -28,6 +28,28 @@ today_str = datetime.now().strftime("%Y-%m-%d")
 ALL_ETFS = SECTOR_ETFS + OVERSEAS_ETFS
 start_date = get_start_date()
 
+# ── 自动初始化：从缓存加载今日数据，或触发自动扫描 ──────────────
+
+if "init_done" not in st.session_state:
+    snap = sh.get_snapshot(today_str)
+    if snap:
+        tb = snap.get("turn_bull", {})
+        st.session_state.bull_etf = tb.get("etfs", [])
+        st.session_state.bull_stock = tb.get("stocks", [])
+        st.session_state.bull_etf_done = True
+        st.session_state.bull_stock_done = True
+        st.session_state.bull_date = today_str
+        tr = snap.get("trend", {})
+        st.session_state.trend_etf = tr.get("etfs", [])
+        st.session_state.trend_stock = tr.get("stocks", [])
+        st.session_state.trend_done = True
+        st.session_state.trend_date = today_str
+    else:
+        st.session_state.bull_etf_done = False
+        st.session_state.bull_stock_done = False
+        st.session_state.trend_done = False
+    st.session_state.init_done = True
+
 # ── ETF转牛扫描 ───────────────────────────────────────────────────
 
 def scan_etf_bull():
@@ -82,7 +104,6 @@ def scan_stock_bull():
         st.session_state.bull_stock = signals
         st.session_state.bull_stock_done = True
         st.session_state.bull_date = today_str
-        # Save to history after both ETF and stock scans are done
         sh.save_turn_bull_snapshot(
             st.session_state.get("bull_stock", []),
             st.session_state.get("bull_etf", []),
@@ -139,22 +160,19 @@ tab_bull, tab_trend, tab_history = st.tabs(["🔄 转牛信号", "📈 趋势信
 # ── Tab 1: 转牛信号 ─────────────────────────────────────────────
 
 with tab_bull:
-    if st.button("🔄 刷新转牛数据", type="primary", use_container_width=True):
-        if st.session_state.get("bull_scanning"):
-            st.session_state.bull_scanning = False
-            st.session_state.bull_etf_done = False
-            st.session_state.bull_stock_done = False
-        else:
-            st.session_state.pop("bull_etf", None)
-            st.session_state.pop("bull_stock", None)
-            st.session_state.pop("bull_scanning", None)
-            st.session_state.pop("bull_date", None)
-            st.session_state.bull_etf_done = False
-            st.session_state.bull_stock_done = False
-            st.cache_data.clear()
+    if st.button("🔄 刷新转牛数据", type="primary", use_container_width=True, key="refresh_bull"):
+        st.cache_data.clear()
+        st.session_state.pop("bull_etf", None)
+        st.session_state.pop("bull_stock", None)
+        st.session_state.pop("bull_scanning", None)
+        st.session_state.pop("bull_date", None)
+        st.session_state.bull_etf_done = False
+        st.session_state.bull_stock_done = False
 
-    # ── 触发扫描 (每次读取最新状态) ──
-    if not st.session_state.get("bull_scanning", False):
+    _bull_scanning = st.session_state.get("bull_scanning", False)
+    if _bull_scanning:
+        pass
+    else:
         _e = st.session_state.get("bull_etf_done")
         _s = st.session_state.get("bull_stock_done")
         if _e is False:
@@ -162,25 +180,19 @@ with tab_bull:
         elif _e is True and _s is not True:
             scan_stock_bull()
 
-    # ── 展示结果 (扫描后重新读取状态) ──
-    _scan = st.session_state.get("bull_scanning", False)
-    _etf = st.session_state.get("bull_etf_done")
-    _stk = st.session_state.get("bull_stock_done")
+    _e = st.session_state.get("bull_etf_done")
+    _s = st.session_state.get("bull_stock_done")
 
-    # ── ETF结果 ──
     st.subheader("📊 ETF 转牛信号")
     bull_etf = st.session_state.get("bull_etf", [])
-    if _etf is None and _stk is None:
-        st.info("👆 点击上方按钮开始扫描")
-    elif bull_etf:
+    if bull_etf:
         st.success(f"ETF转牛: {len(bull_etf)} 只")
-    elif _etf:
+    elif _e:
         st.info("ETF转牛: 无满足条件")
     render_turn_bull_etf_results(bull_etf)
 
-    # ── 个股结果 ──
     st.subheader("📈 个股转牛信号")
-    if _stk:
+    if _s:
         bull_stock = st.session_state.get("bull_stock", [])
         if bull_stock:
             st.success(f"个股转牛: {len(bull_stock)} 只")
@@ -188,48 +200,31 @@ with tab_bull:
             st.info("个股转牛: 无满足条件")
         render_turn_bull_stock_results(bull_stock)
 
-    st.divider()
-    st.caption(
-        f"策略: 近30日大部分<MA60 → 今日首次站上MA60 或 昨日首次+今日确认 | "
-        f"选股: 主板非ST市值≥100亿 | "
-        f"数据更新: {st.session_state.get('bull_date') or today_str}"
-    )
-
 # ── Tab 2: 趋势信号 ──────────────────────────────────────────────
 
 with tab_trend:
-    if st.button("🔄 刷新趋势数据", type="primary", use_container_width=True):
-        if st.session_state.get("trend_scanning"):
-            st.session_state.trend_scanning = False
-            st.session_state.trend_done = False
-        else:
-            st.session_state.pop("trend_etf", None)
-            st.session_state.pop("trend_stock", None)
-            st.session_state.pop("trend_scanning", None)
-            st.session_state.pop("trend_date", None)
-            st.session_state.trend_done = False
-            st.cache_data.clear()
+    if st.button("🔄 刷新趋势数据", type="primary", use_container_width=True, key="refresh_trend"):
+        st.cache_data.clear()
+        st.session_state.pop("trend_etf", None)
+        st.session_state.pop("trend_stock", None)
+        st.session_state.pop("trend_scanning", None)
+        st.session_state.pop("trend_date", None)
+        st.session_state.trend_done = False
 
-    # ── 触发扫描 ──
-    if not st.session_state.get("trend_scanning", False) and st.session_state.get("trend_done") is False:
+    _trend_scanning = st.session_state.get("trend_scanning", False)
+    if not _trend_scanning and st.session_state.get("trend_done") is False:
         run_trend_scan()
 
-    # ── 展示结果 (扫描后读取状态) ──
-    _scan = st.session_state.get("trend_scanning", False)
     _done = st.session_state.get("trend_done")
 
-    # ── ETF结果 ──
     st.subheader("📊 ETF 趋势信号")
     trend_etf = st.session_state.get("trend_etf", [])
-    if _done is None:
-        st.info("👆 点击上方按钮开始扫描")
-    elif trend_etf:
+    if trend_etf:
         st.success(f"ETF趋势: {len(trend_etf)} 只")
     elif _done:
         st.info("ETF: 无满足条件")
     render_trend_etf_results(trend_etf)
 
-    # ── 个股结果 ──
     st.subheader("📈 个股趋势信号")
     if _done:
         trend_stock = st.session_state.get("trend_stock", [])
@@ -238,13 +233,6 @@ with tab_trend:
         else:
             st.info("个股: 无满足条件")
         render_trend_stock_results(trend_stock)
-
-    st.divider()
-    st.caption(
-        f"策略: 近15日 ≥12天收盘>MA5, 全程>MA15 | "
-        f"选股: 主板非ST市值≥100亿 | "
-        f"数据更新: {st.session_state.get('trend_date') or today_str}"
-    )
 
 # ── Tab 3: 历史信号 ──────────────────────────────────────────────
 

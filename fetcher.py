@@ -6,7 +6,7 @@ import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
-from config import HISTORY_DAYS
+from config import HISTORY_DAYS, get_trading_date
 
 CACHE_DIR = Path("data_cache")
 STOCK_LIST_FILE = CACHE_DIR / "stock_list.pkl"
@@ -65,7 +65,7 @@ def get_stock_list():
             return cached
         raise ConnectionError(lg.error_msg)
     try:
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = get_trading_date()
         rs = bs.query_all_stock(day=today)
         rows = []
         while rs.next():

@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 # === 金叉选股策略参数 ===
 GOLDEN_CROSS_SHORT_MA = 10
 GOLDEN_CROSS_LONG_MA = 30
@@ -5,6 +7,14 @@ VOLUME_RATIO = 1.5
 HISTORY_DAYS = 60
 
 MAIN_BOARD_PREFIXES = ('60', '00')
+
+
+def get_trading_date() -> str:
+    """返回最近一个交易日（跳过周末）。"""
+    d = datetime.now()
+    while d.weekday() >= 5:  # Sat=5, Sun=6
+        d -= timedelta(days=1)
+    return d.strftime("%Y-%m-%d")
 
 SECTOR_ETFS = [
     ('159206', '卫星ETF'),

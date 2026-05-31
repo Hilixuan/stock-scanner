@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 
-from config import HISTORY_DAYS, SECTOR_ETFS, OVERSEAS_ETFS
+from config import HISTORY_DAYS, SECTOR_ETFS, OVERSEAS_ETFS, get_trading_date
 from fetcher import (
     get_stock_list, get_start_date,
     fetch_all_histories, fetch_etf_histories,
@@ -24,7 +24,7 @@ st.set_page_config(
 apply_global_style()
 render_header()
 
-today_str = datetime.now().strftime("%Y-%m-%d")
+today_str = get_trading_date()
 ALL_ETFS = SECTOR_ETFS + OVERSEAS_ETFS
 start_date = get_start_date()
 

@@ -1,7 +1,7 @@
 """历史信号存储与读取"""
 import pickle
-from datetime import datetime
 from pathlib import Path
+from config import get_trading_date
 
 HISTORY_FILE = Path("data_cache") / "signal_history.pkl"
 MAX_DAYS = 10
@@ -31,7 +31,7 @@ def _save(data):
 
 def save_turn_bull_snapshot(stocks, etfs):
     """Save 转牛 scan results for today (merge with existing)."""
-    date = datetime.now().strftime("%Y-%m-%d")
+    date = get_trading_date()
     history = _load()
     day = history.setdefault(date, {"turn_bull": {"stocks": [], "etfs": []}, "trend": {"stocks": [], "etfs": []}})
     day["turn_bull"]["stocks"] = _clean(stocks)
@@ -42,7 +42,7 @@ def save_turn_bull_snapshot(stocks, etfs):
 
 def save_trend_snapshot(stocks, etfs):
     """Save 趋势 scan results for today (merge with existing)."""
-    date = datetime.now().strftime("%Y-%m-%d")
+    date = get_trading_date()
     history = _load()
     day = history.setdefault(date, {"turn_bull": {"stocks": [], "etfs": []}, "trend": {"stocks": [], "etfs": []}})
     day["trend"]["stocks"] = _clean(stocks)

@@ -28,13 +28,14 @@ today_str = get_trading_date()
 ALL_ETFS = SECTOR_ETFS + OVERSEAS_ETFS
 start_date = get_start_date()
 
-# ── 自动初始化：从缓存加载今日数据，或触发自动扫描 ──────────────
+# ── 自动初始化 ──────────────────────────────────
 
-if "init_done" not in st.session_state:
-    st.session_state.bull_etf_done = False
-    st.session_state.bull_stock_done = False
-    st.session_state.trend_done = False
-    st.session_state.init_done = True
+APP_VERSION = "v3"  # 修改此值即可触发所有容器重新扫描
+
+if st.session_state.get("app_version") != APP_VERSION:
+    st.session_state.clear()
+    st.session_state.app_version = APP_VERSION
+    st.cache_data.clear()
 
 # ── 全量转牛扫描（ETF + 个股，单次完成） ────────────────────────
 

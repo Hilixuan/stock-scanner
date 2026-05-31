@@ -186,8 +186,8 @@ def fetch_single_history(code, start_date):
 def get_bigcap_stocks():
     """Return pre-filtered big-cap stocks (>= 100亿) from committed CSV."""
     csv_path = Path(__file__).parent / "bigcap_stocks.csv"
-    df = pd.read_csv(csv_path)
-    df["代码"] = df["代码"].astype(str).str.strip()
+    df = pd.read_csv(csv_path, dtype={"代码": str})
+    df["代码"] = df["代码"].str.strip()
     df["名称"] = df["名称"].astype(str).str.strip()
     return df
 

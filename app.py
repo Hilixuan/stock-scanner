@@ -1,7 +1,6 @@
 import streamlit as st
-from datetime import datetime
 
-from config import HISTORY_DAYS, SECTOR_ETFS, OVERSEAS_ETFS, get_trading_date
+from config import HISTORY_DAYS, SECTOR_ETFS, OVERSEAS_ETFS, get_trading_date, beijing_now
 from fetcher import (
     get_bigcap_stocks, get_start_date,
     fetch_all_histories, fetch_etf_histories,
@@ -106,7 +105,7 @@ def run_turn_bull_scan():
         st.session_state.bull_etf_done = True
         st.session_state.bull_stock_done = True
         st.session_state.bull_date = today_str
-        now_hour = datetime.now().hour
+        now_hour = beijing_now().hour
         if now_hour >= 15:
             sh.save_turn_bull_snapshot(stock_signals, etf_signals)
     finally:
@@ -146,7 +145,7 @@ def run_trend_scan():
         st.session_state.trend_stock = stock_signals
         st.session_state.trend_done = True
         st.session_state.trend_date = today_str
-        now_hour = datetime.now().hour
+        now_hour = beijing_now().hour
         if now_hour >= 15:
             sh.save_trend_snapshot(stock_signals, etf_signals)
     finally:

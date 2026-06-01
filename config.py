@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # === 金叉选股策略参数 ===
 GOLDEN_CROSS_SHORT_MA = 10
@@ -9,9 +9,14 @@ HISTORY_DAYS = 60
 MAIN_BOARD_PREFIXES = ('60', '00')
 
 
+def beijing_now():
+    """返回当前北京时间 (UTC+8)。"""
+    return datetime.now(timezone(timedelta(hours=8)))
+
+
 def get_trading_date() -> str:
     """返回最近一个交易日（跳过周末）。"""
-    d = datetime.now()
+    d = beijing_now()
     while d.weekday() >= 5:  # Sat=5, Sun=6
         d -= timedelta(days=1)
     return d.strftime("%Y-%m-%d")

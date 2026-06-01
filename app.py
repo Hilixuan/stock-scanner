@@ -22,11 +22,35 @@ st.set_page_config(
 )
 
 apply_global_style()
-render_header()
 
 today_str = get_trading_date()
 ALL_ETFS = SECTOR_ETFS + OVERSEAS_ETFS
 start_date = get_start_date()
+
+# ── 定时任务入口（cron-job.org → ?cron=1）────────────────────────
+
+if st.query_params.get("cron") == "1":
+    st.title("⏰ 定时扫描")
+    bar = st.progress(0, text="正在扫描趋势信号...")
+    etf_data = fetch_etf_histories(start_date, etf_list=ALL_ETFS)
+    stock_df = get_bigcap_stocks()
+    stock_codes = stock_df["代码"].tolist()
+    stock_name_map = dict(zip(stock_df["代码"], stock_df["名称"]))
+    def cb(comp, total):
+        bar.progress(min(comp / total, 1.0), text=f"趋势数据 {comp}/{total}")
+    histories = fetch_all_histories(stock_codes, start_date, progress_callback=cb)
+    trend_etf = scan_trend_etfs(etf_data)
+    trend_stock = scan_trend_stocks(histories, stock_name_map)
+    sh.save_trend_snapshot(trend_stock, trend_etf)
+    bar.progress(0.5, text="趋势完成，扫描转牛信号...")
+    bull_etf = scan_turn_bull_etfs(etf_data)
+    bull_stock = scan_turn_bull_stocks(histories, stock_name_map)
+    sh.save_turn_bull_snapshot(bull_stock, bull_etf)
+    bar.progress(1.0, text=f"完成 — 趋势{len(trend_stock)}只 转牛{bull_stock}只")
+    st.success(f"趋势: 个股{len(trend_stock)}只 ETF{len(trend_etf)}只 | 转牛: 个股{len(bull_stock)}只 ETF{len(bull_etf)}只")
+    st.stop()
+
+render_header()
 
 # ── 自动初始化 ──────────────────────────────────
 
@@ -36,7 +60,6 @@ if st.session_state.get("app_version") != APP_VERSION:
     st.session_state.clear()
     st.session_state.app_version = APP_VERSION
     st.cache_data.clear()
-    # 清除旧磁盘缓存（防止空缓存导致不调 API）
     from pathlib import Path
     for f in Path("data_cache").glob("*.pkl"):
         f.unlink()

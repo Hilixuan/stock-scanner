@@ -14,7 +14,7 @@ from renderer import (
 )
 
 st.set_page_config(
-    page_title="赏金猎人",
+    page_title="蚂蚁上树",
     page_icon="📈",
     layout="centered",
     initial_sidebar_state="collapsed",

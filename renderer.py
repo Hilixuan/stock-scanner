@@ -21,7 +21,7 @@ def apply_global_style():
 
 
 def render_header():
-    st.title("赏金猎人")
+    st.title("蚂蚁上树")
 
 
 def render_metrics(stock_count, etf_count, scan_date):

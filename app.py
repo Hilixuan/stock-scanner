@@ -47,6 +47,7 @@ if st.query_params.get("cron") == "1":
     sh.save_turn_bull_snapshot(bull_stock, bull_etf)
     bar.progress(1.0, text=f"完成 — 趋势{len(trend_stock)}只 转牛{bull_stock}只")
     st.success(f"趋势: 个股{len(trend_stock)}只 ETF{len(trend_etf)}只 | 转牛: 个股{len(bull_stock)}只 ETF{len(bull_etf)}只")
+    sh.sync_to_git()
     st.stop()
 
 render_header()
@@ -66,8 +67,12 @@ if st.session_state.get("app_version") != APP_VERSION:
 
 # ── 从历史信号恢复当天数据（避免重复扫描） ─────────────────────
 
+@st.cache_data(ttl=86400)
+def _get_cached_snapshot(date):
+    return sh.get_snapshot(date)
+
 _loaded_from_history = False
-_today_snap = sh.get_snapshot(today_str)
+_today_snap = _get_cached_snapshot(today_str)
 if _today_snap:
     tb = _today_snap.get("turn_bull", {})
     tr = _today_snap.get("trend", {})
@@ -128,6 +133,8 @@ def run_turn_bull_scan():
         st.session_state.bull_stock_done = True
         st.session_state.bull_date = today_str
         sh.save_turn_bull_snapshot(stock_signals, etf_signals)
+        _get_cached_snapshot.clear()
+        sh.sync_to_git()
     finally:
         st.session_state.bull_scanning = False
 
@@ -166,6 +173,8 @@ def run_trend_scan():
         st.session_state.trend_done = True
         st.session_state.trend_date = today_str
         sh.save_trend_snapshot(stock_signals, etf_signals)
+        _get_cached_snapshot.clear()
+        sh.sync_to_git()
     finally:
         st.session_state.trend_scanning = False
 

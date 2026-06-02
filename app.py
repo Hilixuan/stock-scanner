@@ -26,10 +26,11 @@ today_str = get_trading_date()
 ALL_ETFS = SECTOR_ETFS + OVERSEAS_ETFS
 start_date = get_start_date()
 
-# ── 定时任务入口（cron-job.org → ?cron=1）────────────────────────
+# ── 全量扫描函数（供 cron 和自动触发共用） ─────────────────────
 
-if st.query_params.get("cron") == "1":
-    st.title("⏰ 定时扫描")
+def _run_full_scan_with_ui():
+    """Run both trend and turn_bull scans with progress UI, save history, sync to git."""
+    st.title("⏰ 收盘自动扫描")
     bar = st.progress(0, text="正在扫描趋势信号...")
     etf_data = fetch_etf_histories(start_date, etf_list=ALL_ETFS)
     stock_df = get_bigcap_stocks()
@@ -47,8 +48,29 @@ if st.query_params.get("cron") == "1":
     sh.save_turn_bull_snapshot(bull_stock, bull_etf)
     bar.progress(1.0, text=f"完成 — 趋势{len(trend_stock)}只 转牛{bull_stock}只")
     st.success(f"趋势: 个股{len(trend_stock)}只 ETF{len(trend_etf)}只 | 转牛: 个股{len(bull_stock)}只 ETF{len(bull_etf)}只")
+    st.cache_data.clear()
     sh.sync_to_git()
+
+# ── 定时任务入口（cron-job.org → ?cron=1）────────────────────────
+
+if st.query_params.get("cron") == "1":
+    _run_full_scan_with_ui()
     st.stop()
+
+# ── 自动收盘扫描（15:00-23:59 周一到周五，首次访问触发） ─────
+
+_now = beijing_now()
+if _now.hour >= 15 and _now.weekday() < 5:
+    if not st.session_state.get("_auto_cron_done"):
+        _today_snap = sh.get_snapshot(today_str)
+        _has_data = bool(_today_snap and (
+            _today_snap.get("turn_bull", {}).get("stocks") or
+            _today_snap.get("trend", {}).get("stocks")
+        ))
+        if not _has_data:
+            st.session_state._auto_cron_done = True
+            _run_full_scan_with_ui()
+            st.stop()
 
 render_header()
 

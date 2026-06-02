@@ -1,4 +1,3 @@
-import pandas as pd
 from config import GOLDEN_CROSS_SHORT_MA, GOLDEN_CROSS_LONG_MA, VOLUME_RATIO
 
 
@@ -116,8 +115,8 @@ def check_ma_cross(df, short_ma=5, long_ma=10):
 def check_turn_bull(df):
     """
     转牛条件:
-      1. 近30日中大部分时间收盘<MA60 (已有逻辑)
-      2. 今日收盘首次站上MA60 OR (昨日首次站上MA60且今日也站上)
+      1. 近30日中≥2/3时间收盘<MA60（弱势确认）
+      2. 今日收盘站上MA60
     """
     if df is None or len(df) < 61:
         return False, None
@@ -135,19 +134,8 @@ def check_turn_bull(df):
     if below_count < threshold:
         return False, df
 
-    # 首次突破检测
-    above = df["收盘"] > df["MA60"]
-    window = above.iloc[-(check_days + 1):]
-    today_above = window.iloc[-1]
-    yesterday_above = window.iloc[-2] if len(window) >= 2 else False
-    past_before_today = window.iloc[:-1]
-    past_before_yesterday = window.iloc[:-2] if len(window) > 2 else pd.Series([], dtype=bool)
-
-    # Case 1: 今日首次站上
-    if today_above and not past_before_today.any():
-        return True, df
-    # Case 2: 昨日首次站上 + 今日确认
-    if yesterday_above and today_above and not past_before_yesterday.any():
+    today_above = float(df["收盘"].iloc[-1]) > float(df["MA60"].iloc[-1])
+    if today_above:
         return True, df
     return False, df
 

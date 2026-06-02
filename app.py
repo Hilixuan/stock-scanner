@@ -296,6 +296,7 @@ with tab_history:
     else:
         sel_date = st.selectbox("选择日期", dates, index=0)
         snap = sh.get_snapshot(sel_date)
+        resurgence = sh.get_resurgence(sel_date)
         if snap:
             tb_stocks = snap.get("turn_bull", {}).get("stocks", [])
             tb_etfs = snap.get("turn_bull", {}).get("etfs", [])
@@ -308,14 +309,18 @@ with tab_history:
                 st.markdown(f"**个股** ({len(tb_stocks)} 只)")
                 if tb_stocks:
                     for r in tb_stocks:
-                        st.write(f"{r.get('代码','')} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}")
+                        code = r.get('代码','')
+                        tag = " 🔥" if code in resurgence else ""
+                        st.write(f"{code} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}{tag}")
                 else:
                     st.caption("无")
             with col2:
                 st.markdown(f"**ETF** ({len(tb_etfs)} 只)")
                 if tb_etfs:
                     for r in tb_etfs:
-                        st.write(f"{r.get('代码','')} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}")
+                        code = r.get('代码','')
+                        tag = " 🔥" if code in resurgence else ""
+                        st.write(f"{code} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}{tag}")
                 else:
                     st.caption("无")
 
@@ -325,13 +330,17 @@ with tab_history:
                 st.markdown(f"**个股** ({len(tr_stocks)} 只)")
                 if tr_stocks:
                     for r in tr_stocks:
-                        st.write(f"{r.get('代码','')} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}")
+                        code = r.get('代码','')
+                        tag = " 🔥" if code in resurgence else ""
+                        st.write(f"{code} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}{tag}")
                 else:
                     st.caption("无")
             with col2:
                 st.markdown(f"**ETF** ({len(tr_etfs)} 只)")
                 if tr_etfs:
                     for r in tr_etfs:
-                        st.write(f"{r.get('代码','')} {r.get('名称','')} {r.get('涨跌幅','')} ({r.get('现价','')})")
+                        code = r.get('代码','')
+                        tag = " 🔥" if code in resurgence else ""
+                        st.write(f"{code} {r.get('名称','')} {r.get('涨跌幅','')} ({r.get('现价','')}){tag}")
                 else:
                     st.caption("无")

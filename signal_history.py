@@ -108,3 +108,38 @@ def get_available_dates():
 
 def get_snapshot(date):
     return _load().get(date)
+
+
+def get_resurgence(date):
+    """Return set of codes that are 死灰复燃 on the given date (present in date but not in previous date, with close > MA5)."""
+    dates = sorted(get_available_dates(), reverse=True)
+    if date not in dates:
+        return set()
+    idx = dates.index(date)
+    if idx + 1 >= len(dates):
+        return set()
+    prev_date = dates[idx + 1]
+
+    cur = get_snapshot(date)
+    prev = get_snapshot(prev_date)
+    if not cur or not prev:
+        return set()
+
+    prev_codes = set()
+    for key in ("turn_bull", "trend"):
+        for typ in ("stocks", "etfs"):
+            for r in prev.get(key, {}).get(typ, []):
+                prev_codes.add(r.get("代码"))
+
+    resurgence = set()
+    for key in ("turn_bull", "trend"):
+        for typ in ("stocks", "etfs"):
+            for r in cur.get(key, {}).get(typ, []):
+                code = r.get("代码")
+                if code and code not in prev_codes:
+                    try:
+                        if float(r.get("现价", 0)) > float(r.get("MA5", 999)):
+                            resurgence.add(code)
+                    except (ValueError, TypeError):
+                        pass
+    return resurgence

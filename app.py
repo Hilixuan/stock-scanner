@@ -76,7 +76,7 @@ render_header()
 
 # ── 自动初始化 ──────────────────────────────────
 
-APP_VERSION = "v4"  # 修改此值即可触发容器重新初始化
+APP_VERSION = "v5"  # 修改此值即可触发容器重新初始化
 
 if st.session_state.get("app_version") != APP_VERSION:
     st.session_state.clear()

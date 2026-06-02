@@ -110,36 +110,51 @@ def get_snapshot(date):
     return _load().get(date)
 
 
-def get_resurgence(date):
-    """Return set of codes that are 死灰复燃 on the given date (present in date but not in previous date, with close > MA5)."""
-    dates = sorted(get_available_dates(), reverse=True)
-    if date not in dates:
-        return set()
-    idx = dates.index(date)
-    if idx + 1 >= len(dates):
-        return set()
-    prev_date = dates[idx + 1]
+def get_resurgence(date, latest_date):
+    """Return set of codes that are 死灰复燃 on the given date vs the latest date.
 
-    cur = get_snapshot(date)
-    prev = get_snapshot(prev_date)
-    if not cur or not prev:
+    A stock is 死灰复燃 if it appears in date's snapshot but NOT in latest_date's snapshot,
+    AND its latest close > MA50.
+    """
+    import requests
+
+    hist = get_snapshot(date)
+    latest = get_snapshot(latest_date)
+    if not hist or not latest:
         return set()
 
-    prev_codes = set()
+    latest_codes = set()
     for key in ("turn_bull", "trend"):
         for typ in ("stocks", "etfs"):
-            for r in prev.get(key, {}).get(typ, []):
-                prev_codes.add(r.get("代码"))
+            for r in latest.get(key, {}).get(typ, []):
+                latest_codes.add(r.get("代码"))
+
+    candidates = set()
+    for key in ("turn_bull", "trend"):
+        for typ in ("stocks", "etfs"):
+            for r in hist.get(key, {}).get(typ, []):
+                code = r.get("代码")
+                if code and code not in latest_codes:
+                    candidates.add(code)
+
+    if not candidates:
+        return set()
 
     resurgence = set()
-    for key in ("turn_bull", "trend"):
-        for typ in ("stocks", "etfs"):
-            for r in cur.get(key, {}).get(typ, []):
-                code = r.get("代码")
-                if code and code not in prev_codes:
-                    try:
-                        if float(r.get("现价", 0)) > float(r.get("MA5", 999)):
-                            resurgence.add(code)
-                    except (ValueError, TypeError):
-                        pass
+    for code in candidates:
+        try:
+            prefix = "sh" if code.startswith("6") else "sz"
+            url = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,60,qfq"
+            resp = requests.get(url, timeout=5)
+            data = resp.json()
+            days = data.get("data", {}).get(f"{prefix}{code}", {}).get("day", []) or \
+                   data.get("data", {}).get(f"{prefix}{code}", {}).get("qfqday", [])
+            if not days or len(days) < 50:
+                continue
+            closes = [float(d[2]) for d in days]
+            if closes[-1] > sum(closes[-50:]) / 50:
+                resurgence.add(code)
+        except Exception:
+            pass
+
     return resurgence

@@ -295,8 +295,10 @@ with tab_history:
         st.info("暂无历史记录。完成一次扫描后，结果将自动保存在此处。")
     else:
         sel_date = st.selectbox("选择日期", dates, index=0)
+        latest_date = dates[0]
         snap = sh.get_snapshot(sel_date)
-        resurgence = sh.get_resurgence(sel_date)
+        with st.spinner("正在计算死灰复燃..."):
+            resurgence = sh.get_resurgence(sel_date, latest_date)
         if snap:
             tb_stocks = snap.get("turn_bull", {}).get("stocks", [])
             tb_etfs = snap.get("turn_bull", {}).get("etfs", [])

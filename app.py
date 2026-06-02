@@ -61,7 +61,8 @@ if st.session_state.get("app_version") != APP_VERSION:
     st.cache_data.clear()
     from pathlib import Path
     for f in Path("data_cache").glob("*.pkl"):
-        f.unlink()
+        if f.name != "signal_history.pkl":
+            f.unlink()
 
 # ── 从历史信号恢复当天数据（避免重复扫描） ─────────────────────
 

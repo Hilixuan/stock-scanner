@@ -65,12 +65,14 @@ if _now.hour >= 15 and _now.weekday() < 5:
         _today_snap = sh.get_snapshot(today_str)
         _has_data = bool(_today_snap and (
             _today_snap.get("turn_bull", {}).get("stocks") or
-            _today_snap.get("trend", {}).get("stocks")
+            _today_snap.get("trend", {}).get("stocks") or
+            _today_snap.get("turn_bull", {}).get("etfs") or
+            _today_snap.get("trend", {}).get("etfs")
         ))
         if not _has_data:
             st.session_state._auto_cron_done = True
             _run_full_scan_with_ui()
-            st.stop()
+            st.rerun()
 
 render_header()
 

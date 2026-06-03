@@ -101,19 +101,19 @@ if not st.session_state.pop("_refresh_requested", False):
     if _today_snap:
         tb = _today_snap.get("turn_bull", {})
         tr = _today_snap.get("trend", {})
-    if tb.get("stocks") or tb.get("etfs"):
-        st.session_state.bull_stock = tb.get("stocks", [])
-        st.session_state.bull_etf = tb.get("etfs", [])
-        st.session_state.bull_etf_done = True
-        st.session_state.bull_stock_done = True
-        st.session_state.bull_date = today_str
-    if tr.get("stocks") or tr.get("etfs"):
-        st.session_state.trend_stock = tr.get("stocks", [])
-        st.session_state.trend_etf = tr.get("etfs", [])
-        st.session_state.trend_done = True
-        st.session_state.trend_date = today_str
-    if tb.get("stocks") or tb.get("etfs") or tr.get("stocks") or tr.get("etfs"):
-        _loaded_from_history = True
+        if tb.get("stocks") or tb.get("etfs"):
+            st.session_state.bull_stock = tb.get("stocks", [])
+            st.session_state.bull_etf = tb.get("etfs", [])
+            st.session_state.bull_etf_done = True
+            st.session_state.bull_stock_done = True
+            st.session_state.bull_date = today_str
+        if tr.get("stocks") or tr.get("etfs"):
+            st.session_state.trend_stock = tr.get("stocks", [])
+            st.session_state.trend_etf = tr.get("etfs", [])
+            st.session_state.trend_done = True
+            st.session_state.trend_date = today_str
+        if tb.get("stocks") or tb.get("etfs") or tr.get("stocks") or tr.get("etfs"):
+            _loaded_from_history = True
 
 # ── 全量转牛扫描（ETF + 个股，单次完成） ────────────────────────
 

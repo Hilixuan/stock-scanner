@@ -96,10 +96,11 @@ def _get_cached_snapshot(date):
     return sh.get_snapshot(date)
 
 _loaded_from_history = False
-_today_snap = _get_cached_snapshot(today_str)
-if _today_snap:
-    tb = _today_snap.get("turn_bull", {})
-    tr = _today_snap.get("trend", {})
+if not st.session_state.pop("_refresh_requested", False):
+    _today_snap = _get_cached_snapshot(today_str)
+    if _today_snap:
+        tb = _today_snap.get("turn_bull", {})
+        tr = _today_snap.get("trend", {})
     if tb.get("stocks") or tb.get("etfs"):
         st.session_state.bull_stock = tb.get("stocks", [])
         st.session_state.bull_etf = tb.get("etfs", [])
@@ -225,6 +226,7 @@ with tab_trend:
 """)
     if st.button("🔄 刷新趋势数据", type="primary", width='stretch', key="refresh_trend"):
         st.cache_data.clear()
+        st.session_state._refresh_requested = True
         st.session_state.pop("trend_etf", None)
         st.session_state.pop("trend_stock", None)
         st.session_state.pop("trend_scanning", None)
@@ -273,6 +275,7 @@ with tab_bull:
 """)
     if st.button("🔄 刷新转牛数据", type="primary", width='stretch', key="refresh_bull"):
         st.cache_data.clear()
+        st.session_state._refresh_requested = True
         st.session_state.pop("bull_etf", None)
         st.session_state.pop("bull_stock", None)
         st.session_state.pop("bull_scanning", None)

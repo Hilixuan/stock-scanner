@@ -32,22 +32,25 @@ def _run_full_scan_with_ui():
     """Run both trend and turn_bull scans with progress UI, save history, sync to git."""
     st.title("⏰ 收盘自动扫描")
     bar = st.progress(0, text="正在扫描趋势信号...")
-    etf_data = fetch_etf_histories(start_date, etf_list=ALL_ETFS)
-    stock_df = get_bigcap_stocks()
-    stock_codes = stock_df["代码"].tolist()
-    stock_name_map = dict(zip(stock_df["代码"], stock_df["名称"]))
-    def cb(comp, total):
-        bar.progress(min(comp / total, 1.0), text=f"趋势数据 {comp}/{total}")
-    histories = fetch_all_histories(stock_codes, start_date, progress_callback=cb)
-    trend_etf = scan_trend_etfs(etf_data)
-    trend_stock = scan_trend_stocks(histories, stock_name_map)
-    sh.save_trend_snapshot(trend_stock, trend_etf)
-    bar.progress(0.5, text="趋势完成，扫描转牛信号...")
-    bull_etf = scan_turn_bull_etfs(etf_data)
-    bull_stock = scan_turn_bull_stocks(histories, stock_name_map)
-    sh.save_turn_bull_snapshot(bull_stock, bull_etf)
-    bar.progress(1.0, text=f"完成 — 趋势{len(trend_stock)}只 转牛{bull_stock}只")
-    st.success(f"趋势: 个股{len(trend_stock)}只 ETF{len(trend_etf)}只 | 转牛: 个股{len(bull_stock)}只 ETF{len(bull_etf)}只")
+    try:
+        etf_data = fetch_etf_histories(start_date, etf_list=ALL_ETFS)
+        stock_df = get_bigcap_stocks()
+        stock_codes = stock_df["代码"].tolist()
+        stock_name_map = dict(zip(stock_df["代码"], stock_df["名称"]))
+        def cb(comp, total):
+            bar.progress(min(comp / total, 1.0), text=f"趋势数据 {comp}/{total}")
+        histories = fetch_all_histories(stock_codes, start_date, progress_callback=cb)
+        trend_etf = scan_trend_etfs(etf_data)
+        trend_stock = scan_trend_stocks(histories, stock_name_map)
+        sh.save_trend_snapshot(trend_stock, trend_etf)
+        bar.progress(0.5, text="趋势完成，扫描转牛信号...")
+        bull_etf = scan_turn_bull_etfs(etf_data)
+        bull_stock = scan_turn_bull_stocks(histories, stock_name_map)
+        sh.save_turn_bull_snapshot(bull_stock, bull_etf)
+        bar.progress(1.0, text=f"完成 — 趋势{len(trend_stock)}只 转牛{bull_stock}只")
+        st.success(f"趋势: 个股{len(trend_stock)}只 ETF{len(trend_etf)}只 | 转牛: 个股{len(bull_stock)}只 ETF{len(bull_etf)}只")
+    except Exception as e:
+        st.error(f"扫描失败: {e}")
     st.cache_data.clear()
     sh.sync_to_git()
 
@@ -62,17 +65,20 @@ if st.query_params.get("cron") == "1":
 _now = beijing_now()
 if _now.hour >= 15 and _now.weekday() < 5:
     if not st.session_state.get("_auto_cron_done"):
-        _today_snap = sh.get_snapshot(today_str)
-        _has_data = bool(_today_snap and (
-            _today_snap.get("turn_bull", {}).get("stocks") or
-            _today_snap.get("trend", {}).get("stocks") or
-            _today_snap.get("turn_bull", {}).get("etfs") or
-            _today_snap.get("trend", {}).get("etfs")
-        ))
-        if not _has_data:
+        try:
+            _today_snap = sh.get_snapshot(today_str)
+            _has_data = bool(_today_snap and (
+                _today_snap.get("turn_bull", {}).get("stocks") or
+                _today_snap.get("trend", {}).get("stocks") or
+                _today_snap.get("turn_bull", {}).get("etfs") or
+                _today_snap.get("trend", {}).get("etfs")
+            ))
+            if not _has_data:
+                st.session_state._auto_cron_done = True
+                _run_full_scan_with_ui()
+                st.rerun()
+        except Exception:
             st.session_state._auto_cron_done = True
-            _run_full_scan_with_ui()
-            st.rerun()
 
 render_header()
 

@@ -3,3 +3,11 @@ __pycache__/
 *.pyc
 .DS_Store
 *.tmp
+*.log
+*.exe
+debug_*.py
+check_history.py
+historical_signals.py
+historical_results.txt
+scan_results.py
+seed_cache.py

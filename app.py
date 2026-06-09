@@ -113,7 +113,7 @@ def run_turn_bull_scan():
         st.session_state.bull_date = today_str
         sh.save_turn_bull_snapshot(stock_signals, etf_signals)
         _get_cached_snapshot.clear()
-        sh.sync_to_git()
+        sh.sync_remote()
     finally:
         st.session_state.bull_scanning = False
 
@@ -153,7 +153,7 @@ def run_trend_scan():
         st.session_state.trend_date = today_str
         sh.save_trend_snapshot(stock_signals, etf_signals)
         _get_cached_snapshot.clear()
-        sh.sync_to_git()
+        sh.sync_remote()
     finally:
         st.session_state.trend_scanning = False
 

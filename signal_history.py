@@ -1,18 +1,13 @@
 """历史信号存储与读取"""
-import json
 import pickle
-import os
-import subprocess
-import urllib.request
+import requests
 from pathlib import Path
 from config import get_trading_date
 
 HISTORY_FILE = Path("data_cache") / "signal_history.pkl"
-HISTORY_JSON = Path("history_data.json")
-REMOTE_RAW = "https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json"
+BLOB_ID = "019eac5a-989d-7d36-99b5-be30e8c6f921"
+BLOB_URL = f"https://jsonblob.com/api/jsonBlob/{BLOB_ID}"
 MAX_DAYS = 10
-
-GIT_REMOTE = "https://github.com/Hilixuan/stock-scanner.git"
 
 
 def _clean(signals):
@@ -27,14 +22,9 @@ def _load():
     except Exception:
         pass
     try:
-        if HISTORY_JSON.exists():
-            with open(HISTORY_JSON, "r", encoding="utf-8") as f:
-                return json.load(f)
-    except Exception:
-        pass
-    try:
-        with urllib.request.urlopen(REMOTE_RAW, timeout=10) as f:
-            return json.loads(f.read().decode("utf-8"))
+        resp = requests.get(BLOB_URL, timeout=10)
+        if resp.status_code == 200:
+            return resp.json()
     except Exception:
         pass
     return {}
@@ -46,30 +36,15 @@ def _save(data):
     with open(tmp, "wb") as f:
         pickle.dump(data, f)
     tmp.replace(HISTORY_FILE)
-    _write_json(data)
 
 
-def _write_json(data):
-    with open(HISTORY_JSON, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def sync_to_git():
-    """Push history_data.json to history-data branch (no deploy trigger)."""
-    token = os.environ.get("GH_TOKEN")
-    if not token:
+def sync_remote():
+    """Push local history to jsonblob.com (no auth needed)."""
+    data = _load()
+    if not data:
         return
     try:
-        _write_json(_load())
-        subprocess.run(["git", "add", "history_data.json"], check=True, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "update history [skip ci]"], check=True, capture_output=True)
-        subprocess.run([
-            "git", "push",
-            f"https://{token}@github.com/Hilixuan/stock-scanner.git",
-            "HEAD:history-data"
-        ], check=True, capture_output=True, timeout=30)
-        subprocess.run(["git", "reset", "--soft", "HEAD~1"], check=True, capture_output=True)
-        subprocess.run(["git", "reset", "history_data.json"], capture_output=True)
+        requests.put(BLOB_URL, json=data, timeout=15)
     except Exception:
         pass
 
@@ -111,13 +86,7 @@ def get_snapshot(date):
 
 
 def get_resurgence(date, latest_date):
-    """Return set of codes that are 死灰复燃 on the given date vs the latest date.
-
-    A stock is 死灰复燃 if it appears in date's snapshot but NOT in latest_date's snapshot,
-    AND its latest close > MA50.
-    """
-    import requests
-
+    """Return set of codes that are 死灰复燃 on the given date vs the latest date."""
     hist = get_snapshot(date)
     latest = get_snapshot(latest_date)
     if not hist or not latest:

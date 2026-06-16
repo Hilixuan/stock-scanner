@@ -285,6 +285,18 @@ with tab_history:
         snap = sh.get_snapshot(sel_date)
         with st.spinner("正在计算死灰复燃..."):
             resurgence = sh.get_resurgence(sel_date, latest_date)
+        _today_trend_ok = st.session_state.get("trend_done") and st.session_state.get("trend_stock")
+        _trend_missed = set()
+        if _today_trend_ok and snap:
+            _today_trend_codes = {r["代码"] for r in st.session_state.trend_stock}
+            _all_hist_codes = set()
+            for _key in ("turn_bull", "trend"):
+                for _r in snap.get(_key, {}).get("stocks", []):
+                    _all_hist_codes.add(_r.get("代码"))
+                for _r in snap.get(_key, {}).get("etfs", []):
+                    _all_hist_codes.add(_r.get("代码"))
+            with st.spinner("正在检测趋势遗漏..."):
+                _trend_missed = sh.get_today_ma5_above(_all_hist_codes, _today_trend_codes)
         if snap:
             tb_stocks = snap.get("turn_bull", {}).get("stocks", [])
             tb_etfs = snap.get("turn_bull", {}).get("etfs", [])
@@ -298,7 +310,7 @@ with tab_history:
                 if tb_stocks:
                     for r in tb_stocks:
                         code = r.get('代码','')
-                        tag = " 🔥" if code in resurgence else ""
+                        tag = " 🔥" if (code in resurgence or code in _trend_missed) else ""
                         st.write(f"{code} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}{tag}")
                 else:
                     st.caption("无")
@@ -307,7 +319,7 @@ with tab_history:
                 if tb_etfs:
                     for r in tb_etfs:
                         code = r.get('代码','')
-                        tag = " 🔥" if code in resurgence else ""
+                        tag = " 🔥" if (code in resurgence or code in _trend_missed) else ""
                         st.write(f"{code} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}{tag}")
                 else:
                     st.caption("无")
@@ -319,7 +331,7 @@ with tab_history:
                 if tr_stocks:
                     for r in tr_stocks:
                         code = r.get('代码','')
-                        tag = " 🔥" if code in resurgence else ""
+                        tag = " 🔥" if (code in resurgence or code in _trend_missed) else ""
                         st.write(f"{code} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}{tag}")
                 else:
                     st.caption("无")
@@ -328,7 +340,7 @@ with tab_history:
                 if tr_etfs:
                     for r in tr_etfs:
                         code = r.get('代码','')
-                        tag = " 🔥" if code in resurgence else ""
+                        tag = " 🔥" if (code in resurgence or code in _trend_missed) else ""
                         st.write(f"{code} {r.get('名称','')} {r.get('涨跌幅','')} ({r.get('现价','')}){tag}")
                 else:
                     st.caption("无")

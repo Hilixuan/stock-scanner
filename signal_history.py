@@ -134,3 +134,30 @@ def get_resurgence(date, latest_date):
             pass
 
     return resurgence
+
+
+def get_today_ma5_above(codes, today_trend_codes):
+    """Return codes where today close > MA5 but not in today's trend scan."""
+    if not codes or today_trend_codes is None:
+        return set()
+    candidates = [c for c in codes if c not in today_trend_codes]
+    if not candidates:
+        return set()
+    result = set()
+    for code in candidates:
+        try:
+            prefix = "sh" if code.startswith("6") else "sz"
+            url = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,10,qfq"
+            resp = requests.get(url, timeout=5)
+            data = resp.json()
+            days = data.get("data", {}).get(f"{prefix}{code}", {}).get("day", []) or \
+                   data.get("data", {}).get(f"{prefix}{code}", {}).get("qfqday", [])
+            if not days or len(days) < 5:
+                continue
+            closes = [float(d[2]) for d in days[-5:]]
+            ma5 = sum(closes) / 5
+            if closes[-1] > ma5:
+                result.add(code)
+        except Exception:
+            pass
+    return result

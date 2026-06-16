@@ -7,6 +7,7 @@ from config import get_trading_date
 HISTORY_FILE = Path("data_cache") / "signal_history.pkl"
 BLOB_ID = "019eac5a-989d-7d36-99b5-be30e8c6f921"
 BLOB_URL = f"https://jsonblob.com/api/jsonBlob/{BLOB_ID}"
+GITHUB_FALLBACK = "https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json"
 MAX_DAYS = 10
 
 
@@ -21,12 +22,13 @@ def _load():
                 return pickle.load(f)
     except Exception:
         pass
-    try:
-        resp = requests.get(BLOB_URL, timeout=10)
-        if resp.status_code == 200:
-            return resp.json()
-    except Exception:
-        pass
+    for url in (BLOB_URL, GITHUB_FALLBACK):
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                return resp.json()
+        except Exception:
+            pass
     return {}
 
 
@@ -36,17 +38,22 @@ def _save(data):
     with open(tmp, "wb") as f:
         pickle.dump(data, f)
     tmp.replace(HISTORY_FILE)
+    _sync(data)
 
 
-def sync_remote():
-    """Push local history to jsonblob.com (no auth needed)."""
-    data = _load()
+def _sync(data):
+    """Push data to jsonblob.com (no auth needed)."""
     if not data:
         return
     try:
         requests.put(BLOB_URL, json=data, timeout=15)
     except Exception:
         pass
+
+
+def sync_remote():
+    """Public API: push current history to jsonblob.com."""
+    _sync(_load())
 
 
 def save_turn_bull_snapshot(stocks, etfs):

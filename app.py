@@ -43,7 +43,7 @@ if st.session_state.get("app_version") != APP_VERSION:
         if f.name != "signal_history.pkl":
             f.unlink()
 
-# ── 从历史信号恢复当天数据（避免重复扫描） ─────────────────────
+# ── 从历史信号恢复最近数据（避免重复扫描） ─────────────────────
 
 @st.cache_data(ttl=86400)
 def _get_cached_snapshot(date):
@@ -51,23 +51,28 @@ def _get_cached_snapshot(date):
 
 _loaded_from_history = False
 if not st.session_state.pop("_refresh_requested", False):
-    _today_snap = _get_cached_snapshot(today_str)
-    if _today_snap:
-        tb = _today_snap.get("turn_bull", {})
-        tr = _today_snap.get("trend", {})
-        if tb.get("stocks") or tb.get("etfs"):
-            st.session_state.bull_stock = tb.get("stocks", [])
-            st.session_state.bull_etf = tb.get("etfs", [])
-            st.session_state.bull_etf_done = True
-            st.session_state.bull_stock_done = True
-            st.session_state.bull_date = today_str
-        if tr.get("stocks") or tr.get("etfs"):
-            st.session_state.trend_stock = tr.get("stocks", [])
-            st.session_state.trend_etf = tr.get("etfs", [])
-            st.session_state.trend_done = True
-            st.session_state.trend_date = today_str
-        if tb.get("stocks") or tb.get("etfs") or tr.get("stocks") or tr.get("etfs"):
-            _loaded_from_history = True
+    _dates = sh.get_available_dates()
+    _snap_date = today_str if sh.get_snapshot(today_str) else (_dates[0] if _dates else None)
+    if _snap_date:
+        _snap = _get_cached_snapshot(_snap_date)
+        if _snap:
+            tb = _snap.get("turn_bull", {})
+            tr = _snap.get("trend", {})
+            if tb.get("stocks") or tb.get("etfs"):
+                st.session_state.bull_stock = tb.get("stocks", [])
+                st.session_state.bull_etf = tb.get("etfs", [])
+                st.session_state.bull_etf_done = True
+                st.session_state.bull_stock_done = True
+                st.session_state.bull_date = _snap_date
+            if tr.get("stocks") or tr.get("etfs"):
+                st.session_state.trend_stock = tr.get("stocks", [])
+                st.session_state.trend_etf = tr.get("etfs", [])
+                st.session_state.trend_done = True
+                st.session_state.trend_date = _snap_date
+            if tb.get("stocks") or tb.get("etfs") or tr.get("stocks") or tr.get("etfs"):
+                _loaded_from_history = True
+    if _loaded_from_history and _snap_date != today_str:
+        st.caption(f"📌 当前显示 {_snap_date} 数据（今日尚未扫描）")
 
 # ── 全量转牛扫描（ETF + 个股，单次完成） ────────────────────────
 

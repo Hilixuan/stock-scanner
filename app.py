@@ -157,6 +157,8 @@ def run_trend_scan():
         st.session_state.trend_done = True
         st.session_state.trend_date = today_str
         sh.save_trend_snapshot(stock_signals, etf_signals)
+        _trend_codes = {r["代码"] for r in stock_signals}
+        st.session_state.trend_missed = sh.compute_and_save_today_missed(_trend_codes)
         _get_cached_snapshot.clear()
         sh.sync_remote()
     finally:
@@ -283,20 +285,8 @@ with tab_history:
         sel_date = st.selectbox("选择日期", dates, index=0)
         latest_date = dates[0]
         snap = sh.get_snapshot(sel_date)
-        with st.spinner("正在计算死灰复燃..."):
-            resurgence = sh.get_resurgence(sel_date, latest_date)
-        _today_trend_ok = st.session_state.get("trend_done") and st.session_state.get("trend_stock")
-        _trend_missed = set()
-        if _today_trend_ok and snap:
-            _today_trend_codes = {r["代码"] for r in st.session_state.trend_stock}
-            _all_hist_codes = set()
-            for _key in ("turn_bull", "trend"):
-                for _r in snap.get(_key, {}).get("stocks", []):
-                    _all_hist_codes.add(_r.get("代码"))
-                for _r in snap.get(_key, {}).get("etfs", []):
-                    _all_hist_codes.add(_r.get("代码"))
-            with st.spinner("正在检测趋势遗漏..."):
-                _trend_missed = sh.get_today_ma5_above(_all_hist_codes, _today_trend_codes)
+        resurgence = sh.get_resurgence(sel_date, latest_date) if snap else set()
+        _trend_missed = set(st.session_state.get("trend_missed", [])) if st.session_state.get("trend_done") else set()
         if snap:
             tb_stocks = snap.get("turn_bull", {}).get("stocks", [])
             tb_etfs = snap.get("turn_bull", {}).get("etfs", [])

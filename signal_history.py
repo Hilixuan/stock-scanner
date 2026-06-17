@@ -165,3 +165,25 @@ def get_today_ma5_above(codes, today_trend_codes):
         except Exception:
             pass
     return result
+
+
+def compute_and_save_today_missed(today_trend_codes, date=None):
+    """Pre-compute trend-missed codes for all historical stocks and save under today's snapshot."""
+    if date is None:
+        from config import get_trading_date
+        date = get_trading_date()
+    history = _load()
+    if not history:
+        return set()
+    all_codes = set()
+    for day_data in history.values():
+        for key in ("turn_bull", "trend"):
+            for r in day_data.get(key, {}).get("stocks", []):
+                all_codes.add(r.get("代码"))
+    if not all_codes:
+        return set()
+    missed = get_today_ma5_above(all_codes, today_trend_codes)
+    if date in history:
+        history[date]["trend_missed"] = list(missed)
+        _save(history)
+    return missed

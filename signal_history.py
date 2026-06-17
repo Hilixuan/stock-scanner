@@ -5,7 +5,7 @@ from pathlib import Path
 from config import get_trading_date
 
 HISTORY_FILE = Path("data_cache") / "signal_history.pkl"
-BLOB_ID = "019eac5a-989d-7d36-99b5-be30e8c6f921"
+BLOB_ID = "019ed59c-f449-75f9-9d95-93fe5329f4bd"
 BLOB_URL = f"https://jsonblob.com/api/jsonBlob/{BLOB_ID}"
 GITHUB_FALLBACK = "https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json"
 MAX_DAYS = 10
@@ -19,14 +19,18 @@ def _load():
     try:
         if HISTORY_FILE.exists():
             with open(HISTORY_FILE, "rb") as f:
-                return pickle.load(f)
+                data = pickle.load(f)
+                if isinstance(data, dict) and data:
+                    return data
     except Exception:
         pass
     for url in (BLOB_URL, GITHUB_FALLBACK):
         try:
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
-                return resp.json()
+                data = resp.json()
+                if isinstance(data, dict) and any(isinstance(v, dict) for v in data.values()):
+                    return data
         except Exception:
             pass
     return {}

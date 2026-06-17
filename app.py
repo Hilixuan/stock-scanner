@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 from config import HISTORY_DAYS, SECTOR_ETFS, OVERSEAS_ETFS, get_trading_date
 from fetcher import (
@@ -263,43 +264,27 @@ with tab_history:
             tr_etfs = snap.get("trend", {}).get("etfs", [])
 
             st.markdown(f"### 🔄 转牛信号 — {sel_date}")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"**个股** ({len(tb_stocks)} 只)")
-                if tb_stocks:
-                    for r in tb_stocks:
+            for label, items in [("个股", tb_stocks), ("ETF", tb_etfs)]:
+                st.markdown(f"**{label}** ({len(items)} 只)")
+                if items:
+                    rows = []
+                    for r in items:
                         code = r.get('代码','')
-                        tag = " 🔥" if (code in resurgence or code in _trend_missed) else ""
-                        st.write(f"{code} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}{tag}")
-                else:
-                    st.caption("无")
-            with col2:
-                st.markdown(f"**ETF** ({len(tb_etfs)} 只)")
-                if tb_etfs:
-                    for r in tb_etfs:
-                        code = r.get('代码','')
-                        tag = " 🔥" if (code in resurgence or code in _trend_missed) else ""
-                        st.write(f"{code} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}{tag}")
+                        tag = "🔥" if (code in resurgence or code in _trend_missed) else ""
+                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": r.get('现价',''), "涨跌幅": r.get('涨跌幅',''), "MA5": r.get('MA5',''), "标记": tag})
+                    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
                 else:
                     st.caption("无")
 
             st.markdown(f"### 📈 趋势信号 — {sel_date}")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"**个股** ({len(tr_stocks)} 只)")
-                if tr_stocks:
-                    for r in tr_stocks:
+            for label, items in [("个股", tr_stocks), ("ETF", tr_etfs)]:
+                st.markdown(f"**{label}** ({len(items)} 只)")
+                if items:
+                    rows = []
+                    for r in items:
                         code = r.get('代码','')
-                        tag = " 🔥" if (code in resurgence or code in _trend_missed) else ""
-                        st.write(f"{code} {r.get('名称','')} {r.get('现价','')} {r.get('涨跌幅','')}{tag}")
-                else:
-                    st.caption("无")
-            with col2:
-                st.markdown(f"**ETF** ({len(tr_etfs)} 只)")
-                if tr_etfs:
-                    for r in tr_etfs:
-                        code = r.get('代码','')
-                        tag = " 🔥" if (code in resurgence or code in _trend_missed) else ""
-                        st.write(f"{code} {r.get('名称','')} {r.get('涨跌幅','')} ({r.get('现价','')}){tag}")
+                        tag = "🔥" if (code in resurgence or code in _trend_missed) else ""
+                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": r.get('现价',''), "涨跌幅": r.get('涨跌幅',''), "MA5": r.get('MA5',''), "标记": tag})
+                    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
                 else:
                     st.caption("无")

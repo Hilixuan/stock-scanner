@@ -5,10 +5,42 @@ from pathlib import Path
 from config import get_trading_date
 
 HISTORY_FILE = Path("data_cache") / "signal_history.pkl"
-BLOB_ID = "019ed59c-f449-75f9-9d95-93fe5329f4bd"
-BLOB_URL = f"https://jsonblob.com/api/jsonBlob/{BLOB_ID}"
+BLOB_ID = None
+BLOB_URL = None
 GITHUB_FALLBACK = "https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json"
 MAX_DAYS = 10
+_BLOB_ID_FILE = Path("data_cache") / "blob_id.txt"
+
+
+def _get_blob_url():
+    global BLOB_ID, BLOB_URL
+    if BLOB_URL is not None:
+        return BLOB_URL
+    if BLOB_ID is None:
+        if _BLOB_ID_FILE.exists():
+            BLOB_ID = _BLOB_ID_FILE.read_text(encoding="utf-8").strip()
+        else:
+            BLOB_ID = "019ee9a0-46d9-75cf-8cc6-ff718d46dfea"
+    BLOB_URL = f"https://jsonblob.com/api/jsonBlob/{BLOB_ID}"
+    return BLOB_URL
+
+
+def _renew_blob():
+    global BLOB_ID, BLOB_URL
+    try:
+        resp = requests.post("https://jsonblob.com/api/jsonBlob", json={}, timeout=15)
+        if resp.status_code == 201:
+            loc = resp.headers.get("Location", "")
+            new_id = loc.replace("/api/jsonBlob/", "")
+            if new_id:
+                BLOB_ID = new_id
+                BLOB_URL = f"https://jsonblob.com/api/jsonBlob/{BLOB_ID}"
+                _BLOB_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
+                _BLOB_ID_FILE.write_text(new_id, encoding="utf-8")
+                return True
+    except Exception:
+        pass
+    return False
 
 
 def _clean(signals):
@@ -24,12 +56,21 @@ def _load():
                     return data
     except Exception:
         pass
-    for url in (BLOB_URL, GITHUB_FALLBACK):
+    for url in (_get_blob_url(), GITHUB_FALLBACK):
         try:
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
-                if isinstance(data, dict) and any(isinstance(v, dict) for v in data.values()):
+                if isinstance(data, dict) and data:
+                    return data
+        except Exception:
+            pass
+    if _renew_blob():
+        try:
+            resp = requests.get(_get_blob_url(), timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, dict) and data:
                     return data
         except Exception:
             pass
@@ -46,11 +87,15 @@ def _save(data):
 
 
 def _sync(data):
-    """Push data to jsonblob.com (no auth needed)."""
+    """Push data to jsonblob.com (no auth needed). Auto-renew on expiry."""
     if not data:
         return
     try:
-        requests.put(BLOB_URL, json=data, timeout=15)
+        url = _get_blob_url()
+        resp = requests.put(url, json=data, timeout=15)
+        if resp.status_code == 404:
+            if _renew_blob():
+                requests.put(_get_blob_url(), json=data, timeout=15)
     except Exception:
         pass
 

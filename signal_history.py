@@ -5,46 +5,68 @@ from pathlib import Path
 from config import get_trading_date
 
 HISTORY_FILE = Path("data_cache") / "signal_history.pkl"
-BLOB_ID = None
-BLOB_URL = None
-GITHUB_FALLBACK = "https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json"
 MAX_DAYS = 10
+GITHUB_FALLBACK = "https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json"
+
+_KNOWN_BLOBS = [
+    "019eef37-c7b4-7516-b8b0-be8e7597eaac",
+    "019ee9a0-46d9-75cf-8cc6-ff718d46dfea",
+]
+
 _BLOB_ID_FILE = Path("data_cache") / "blob_id.txt"
+_ACTIVE_BLOB_ID = None
 
 
-def _get_blob_url():
-    global BLOB_ID, BLOB_URL
-    if BLOB_URL is not None:
-        return BLOB_URL
-    if BLOB_ID is None:
-        if _BLOB_ID_FILE.exists():
-            BLOB_ID = _BLOB_ID_FILE.read_text(encoding="utf-8").strip()
-        else:
-            BLOB_ID = "019ee9a0-46d9-75cf-8cc6-ff718d46dfea"
-    BLOB_URL = f"https://jsonblob.com/api/jsonBlob/{BLOB_ID}"
-    return BLOB_URL
+def _blob_url(blob_id):
+    return f"https://jsonblob.com/api/jsonBlob/{blob_id}"
 
 
-def _renew_blob():
-    global BLOB_ID, BLOB_URL
+def _read_blob(blob_id):
     try:
-        resp = requests.post("https://jsonblob.com/api/jsonBlob", json={}, timeout=15)
+        resp = requests.get(_blob_url(blob_id), timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, dict) and data:
+                return data
+    except Exception:
+        pass
+    return None
+
+
+def _write_blob(blob_id, data):
+    try:
+        resp = requests.put(_blob_url(blob_id), json=data, timeout=15)
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
+def _create_blob(data=None):
+    try:
+        body = {} if data is None else data
+        resp = requests.post("https://jsonblob.com/api/jsonBlob", json=body, timeout=15)
         if resp.status_code == 201:
             loc = resp.headers.get("Location", "")
             new_id = loc.replace("/api/jsonBlob/", "")
             if new_id:
-                BLOB_ID = new_id
-                BLOB_URL = f"https://jsonblob.com/api/jsonBlob/{BLOB_ID}"
                 _BLOB_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
                 _BLOB_ID_FILE.write_text(new_id, encoding="utf-8")
-                return True
+                global _ACTIVE_BLOB_ID
+                _ACTIVE_BLOB_ID = new_id
+                return new_id
     except Exception:
         pass
-    return False
+    return None
 
 
-def _clean(signals):
-    return [{k: v for k, v in s.items() if k != "_detail_df"} for s in signals]
+def _active_blob():
+    global _ACTIVE_BLOB_ID
+    if _ACTIVE_BLOB_ID:
+        return _ACTIVE_BLOB_ID
+    if _BLOB_ID_FILE.exists():
+        _ACTIVE_BLOB_ID = _BLOB_ID_FILE.read_text(encoding="utf-8").strip()
+        return _ACTIVE_BLOB_ID
+    return None
 
 
 def _load():
@@ -56,24 +78,32 @@ def _load():
                     return data
     except Exception:
         pass
-    for url in (_get_blob_url(), GITHUB_FALLBACK):
-        try:
-            resp = requests.get(url, timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, dict) and data:
-                    return data
-        except Exception:
-            pass
-    if _renew_blob():
-        try:
-            resp = requests.get(_get_blob_url(), timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, dict) and data:
-                    return data
-        except Exception:
-            pass
+    blob_id = _active_blob()
+    if blob_id:
+        data = _read_blob(blob_id)
+        if data:
+            return data
+    for bid in _KNOWN_BLOBS:
+        if bid == blob_id:
+            continue
+        data = _read_blob(bid)
+        if data:
+            _BLOB_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
+            _BLOB_ID_FILE.write_text(bid, encoding="utf-8")
+            return data
+    try:
+        resp = requests.get(GITHUB_FALLBACK, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, dict) and data:
+                return data
+    except Exception:
+        pass
+    new_id = _create_blob()
+    if new_id:
+        data = _read_blob(new_id)
+        if data:
+            return data
     return {}
 
 
@@ -87,26 +117,30 @@ def _save(data):
 
 
 def _sync(data):
-    """Push data to jsonblob.com (no auth needed). Auto-renew on expiry."""
     if not data:
         return
-    try:
-        url = _get_blob_url()
-        resp = requests.put(url, json=data, timeout=15)
-        if resp.status_code == 404:
-            if _renew_blob():
-                requests.put(_get_blob_url(), json=data, timeout=15)
-    except Exception:
+    blob_id = _active_blob()
+    if blob_id and _write_blob(blob_id, data):
+        return
+    for bid in _KNOWN_BLOBS:
+        if bid == blob_id:
+            continue
+        if _write_blob(bid, data):
+            _BLOB_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
+            _BLOB_ID_FILE.write_text(bid, encoding="utf-8")
+            global _ACTIVE_BLOB_ID
+            _ACTIVE_BLOB_ID = bid
+            return
+    new_id = _create_blob(data)
+    if new_id:
         pass
 
 
 def sync_remote():
-    """Public API: push current history to jsonblob.com."""
     _sync(_load())
 
 
 def save_turn_bull_snapshot(stocks, etfs):
-    """Save 转牛 scan results for today (merge with existing)."""
     date = get_trading_date()
     history = _load()
     day = history.setdefault(date, {"turn_bull": {"stocks": [], "etfs": []}, "trend": {"stocks": [], "etfs": []}})
@@ -117,7 +151,6 @@ def save_turn_bull_snapshot(stocks, etfs):
 
 
 def save_trend_snapshot(stocks, etfs):
-    """Save 趋势 scan results for today (merge with existing)."""
     date = get_trading_date()
     history = _load()
     day = history.setdefault(date, {"turn_bull": {"stocks": [], "etfs": []}, "trend": {"stocks": [], "etfs": []}})
@@ -142,7 +175,6 @@ def get_snapshot(date):
 
 
 def get_resurgence(date, latest_date):
-    """Return set of codes that are 死灰复燃 on the given date vs the latest date."""
     hist = get_snapshot(date)
     latest = get_snapshot(latest_date)
     if not hist or not latest:
@@ -186,7 +218,6 @@ def get_resurgence(date, latest_date):
 
 
 def get_today_ma5_above(codes, today_trend_codes):
-    """Return codes where today close > MA5 but not in today's trend scan."""
     if not codes or today_trend_codes is None:
         return set()
     candidates = [c for c in codes if c not in today_trend_codes]
@@ -213,7 +244,6 @@ def get_today_ma5_above(codes, today_trend_codes):
 
 
 def compute_and_save_today_missed(today_trend_codes, date=None):
-    """Pre-compute trend-missed codes for all historical stocks and save under today's snapshot."""
     if date is None:
         from config import get_trading_date
         date = get_trading_date()
@@ -232,3 +262,7 @@ def compute_and_save_today_missed(today_trend_codes, date=None):
         history[date]["trend_missed"] = list(missed)
         _save(history)
     return missed
+
+
+def _clean(signals):
+    return [{k: v for k, v in s.items() if k != "_detail_df"} for s in signals]

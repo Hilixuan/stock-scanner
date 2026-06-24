@@ -31,6 +31,14 @@ start_date = get_start_date()
 
 render_header()
 
+# ── DEBUG: 检查数据加载 ─────────────────────────
+_debug_raw = sh._load()
+_debug_dates = list(_debug_raw.keys()) if _debug_raw else []
+st.write(f"DEBUG _load() keys: {_debug_dates}")
+if _debug_raw:
+    for d in sorted(_debug_raw.keys()):
+        tr = _debug_raw[d].get("trend", {})
+        st.write(f"  {d}: trend_stocks={len(tr.get('stocks',[]))}")
 # ── 自动初始化 ──────────────────────────────────
 
 APP_VERSION = "v6"  # 修改此值即可触发容器重新初始化

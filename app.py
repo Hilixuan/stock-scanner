@@ -253,15 +253,20 @@ with tab_history:
         st.info("暂无历史记录。完成一次扫描后，结果将自动保存在此处。")
     else:
         sel_date = st.selectbox("选择日期", dates, index=0)
-        latest_date = dates[0]
         snap = sh.get_snapshot(sel_date)
-        resurgence = sh.get_resurgence(sel_date, latest_date) if snap else set()
-        _trend_missed = set(st.session_state.get("trend_missed", [])) if st.session_state.get("trend_done") else set()
+        today_snap = sh.get_snapshot(today_str)
+        trend_missed = set(today_snap.get("trend_missed", [])) if today_snap else set()
         if snap:
             tb_stocks = snap.get("turn_bull", {}).get("stocks", [])
             tb_etfs = snap.get("turn_bull", {}).get("etfs", [])
             tr_stocks = snap.get("trend", {}).get("stocks", [])
             tr_etfs = snap.get("trend", {}).get("etfs", [])
+
+            _all_hist_codes = set()
+            for items in [tb_stocks, tb_etfs, tr_stocks, tr_etfs]:
+                for r in items:
+                    _all_hist_codes.add(r.get("代码", ""))
+            realtime = sh.fetch_realtime_prices(list(_all_hist_codes)) if _all_hist_codes else {}
 
             st.markdown(f"### 🔄 转牛信号 — {sel_date}")
             for label, items in [("个股", tb_stocks), ("ETF", tb_etfs)]:
@@ -270,8 +275,9 @@ with tab_history:
                     rows = []
                     for r in items:
                         code = r.get('代码','')
-                        tag = "🔥" if (code in resurgence or code in _trend_missed) else ""
-                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": r.get('现价',''), "涨跌幅": r.get('涨跌幅',''), "MA5": r.get('MA5',''), "标记": tag})
+                        tag = "🔥" if code in trend_missed else ""
+                        rt = realtime.get(code, {})
+                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": rt.get("现价", r.get('现价','')), "涨跌幅": rt.get("涨跌幅", r.get('涨跌幅','')), "MA5": r.get('MA5',''), "标记": tag})
                     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
                 else:
                     st.caption("无")
@@ -283,8 +289,9 @@ with tab_history:
                     rows = []
                     for r in items:
                         code = r.get('代码','')
-                        tag = "🔥" if (code in resurgence or code in _trend_missed) else ""
-                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": r.get('现价',''), "涨跌幅": r.get('涨跌幅',''), "MA5": r.get('MA5',''), "标记": tag})
+                        tag = "🔥" if code in trend_missed else ""
+                        rt = realtime.get(code, {})
+                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": rt.get("现价", r.get('现价','')), "涨跌幅": rt.get("涨跌幅", r.get('涨跌幅','')), "MA5": r.get('MA5',''), "标记": tag})
                     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
                 else:
                     st.caption("无")

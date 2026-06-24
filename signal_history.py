@@ -9,8 +9,8 @@ MAX_DAYS = 10
 GITHUB_FALLBACK = "https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json"
 
 _KNOWN_BLOBS = [
-    "019eef37-c7b4-7516-b8b0-be8e7597eaac",
-    "019ee9a0-46d9-75cf-8cc6-ff718d46dfea",
+    "019ef990-0134-7fcb-a9d2-539aa7d4d092",
+    "019ef990-3330-7a20-8a18-ec69ee37275a",
 ]
 
 _BLOB_ID_FILE = Path("data_cache") / "blob_id.txt"
@@ -39,6 +39,14 @@ def _write_blob(blob_id, data):
         return resp.status_code == 200
     except Exception:
         return False
+
+
+def _seed_blob(data):
+    """Create a new blob with data and set it as the active blob."""
+    new_id = _create_blob(data)
+    if new_id:
+        global _ACTIVE_BLOB_ID
+        _ACTIVE_BLOB_ID = new_id
 
 
 def _create_blob(data=None):
@@ -96,6 +104,7 @@ def _load():
         if resp.status_code == 200:
             data = resp.json()
             if isinstance(data, dict) and data:
+                _seed_blob(data)
                 return data
     except Exception:
         pass
@@ -174,49 +183,6 @@ def get_snapshot(date):
     return _load().get(date)
 
 
-def get_resurgence(date, latest_date):
-    hist = get_snapshot(date)
-    latest = get_snapshot(latest_date)
-    if not hist or not latest:
-        return set()
-
-    latest_codes = set()
-    for key in ("turn_bull", "trend"):
-        for typ in ("stocks", "etfs"):
-            for r in latest.get(key, {}).get(typ, []):
-                latest_codes.add(r.get("代码"))
-
-    candidates = set()
-    for key in ("turn_bull", "trend"):
-        for typ in ("stocks", "etfs"):
-            for r in hist.get(key, {}).get(typ, []):
-                code = r.get("代码")
-                if code and code not in latest_codes:
-                    candidates.add(code)
-
-    if not candidates:
-        return set()
-
-    resurgence = set()
-    for code in candidates:
-        try:
-            prefix = "sh" if code.startswith("6") else "sz"
-            url = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,60,qfq"
-            resp = requests.get(url, timeout=5)
-            data = resp.json()
-            days = data.get("data", {}).get(f"{prefix}{code}", {}).get("day", []) or \
-                   data.get("data", {}).get(f"{prefix}{code}", {}).get("qfqday", [])
-            if not days or len(days) < 50:
-                continue
-            closes = [float(d[2]) for d in days]
-            if closes[-1] > sum(closes[-50:]) / 50:
-                resurgence.add(code)
-        except Exception:
-            pass
-
-    return resurgence
-
-
 def get_today_ma5_above(codes, today_trend_codes):
     if not codes or today_trend_codes is None:
         return set()
@@ -266,3 +232,34 @@ def compute_and_save_today_missed(today_trend_codes, date=None):
 
 def _clean(signals):
     return [{k: v for k, v in s.items() if k != "_detail_df"} for s in signals]
+
+
+def fetch_realtime_prices(codes):
+    """Fetch real-time 现价 and 涨跌幅 for given stock/ETF codes via Tencent qt API."""
+    if not codes:
+        return {}
+    grouped = {"sh": [], "sz": []}
+    for c in codes:
+        grouped["sh" if c.startswith("6") else "sz"].append(c)
+    query = ",".join(f"{pre}{c}" for pre, cs in grouped.items() for c in cs)
+    if not query:
+        return {}
+    try:
+        resp = requests.get(f"http://qt.gtimg.cn/q={query}", timeout=5)
+        result = {}
+        for line in resp.text.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                parts = line.split("~")
+                code = parts[2]
+                cur = float(parts[3])
+                pre_close = float(parts[4])
+                chg = round((cur - pre_close) / pre_close * 100, 2) if pre_close else 0.0
+                result[code] = {"现价": cur, "涨跌幅": f"{chg:+.2f}%"}
+            except (IndexError, ValueError):
+                continue
+        return result
+    except Exception:
+        return {}

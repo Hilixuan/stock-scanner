@@ -1,6 +1,9 @@
 """历史信号存储与读取"""
 import pickle
 import requests
+import os
+import base64
+import json
 from pathlib import Path
 from config import get_trading_date
 
@@ -15,6 +18,32 @@ _KNOWN_BLOBS = [
 
 _BLOB_ID_FILE = Path("data_cache") / "blob_id.txt"
 _ACTIVE_BLOB_ID = None
+_GH_TOKEN = os.environ.get("GH_TOKEN", "")
+
+
+def set_gh_token(token):
+    global _GH_TOKEN
+    _GH_TOKEN = token
+
+
+def _sync_github(data):
+    """Write history data to GitHub history-data branch using API."""
+    if not _GH_TOKEN or not data:
+        return
+    try:
+        url = "https://api.github.com/repos/Hilixuan/stock-scanner/contents/history_data.json"
+        head_resp = requests.get(url + "?ref=history-data",
+                                 headers={"Authorization": f"token {_GH_TOKEN}"}, timeout=10)
+        sha = head_resp.json().get("sha", "") if head_resp.status_code == 200 else ""
+        content = base64.b64encode(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")).decode("utf-8")
+        body = {"message": "update history data", "content": content, "branch": "history-data"}
+        if sha:
+            body["sha"] = sha
+        resp = requests.put(url, json=body,
+                            headers={"Authorization": f"token {_GH_TOKEN}"}, timeout=15)
+        return resp.status_code in (200, 201)
+    except Exception:
+        return False
 
 
 def _blob_url(blob_id):
@@ -123,6 +152,7 @@ def _save(data):
         pickle.dump(data, f)
     tmp.replace(HISTORY_FILE)
     _sync(data)
+    _sync_github(data)
 
 
 def _sync(data):

@@ -31,14 +31,13 @@ start_date = get_start_date()
 
 render_header()
 
-# ── DEBUG: 检查数据加载 ─────────────────────────
-_debug_raw = sh._load()
-_debug_dates = list(_debug_raw.keys()) if _debug_raw else []
-st.write(f"DEBUG _load() keys: {_debug_dates}")
-if _debug_raw:
-    for d in sorted(_debug_raw.keys()):
-        tr = _debug_raw[d].get("trend", {})
-        st.write(f"  {d}: trend_stocks={len(tr.get('stocks',[]))}")
+# ── GitHub Token ────────────────────────────────────
+try:
+    if "GH_TOKEN" in st.secrets:
+        sh.set_gh_token(st.secrets["GH_TOKEN"])
+except Exception:
+    pass
+
 # ── 自动初始化 ──────────────────────────────────
 
 APP_VERSION = "v6"  # 修改此值即可触发容器重新初始化
@@ -60,10 +59,9 @@ def _get_cached_snapshot(date):
 
 _loaded_from_history = False
 if not st.session_state.pop("_refresh_requested", False):
-    _dates = sh.get_available_dates()
-    _snap_date = today_str if sh.get_snapshot(today_str) else (_dates[0] if _dates else None)
-    if _snap_date:
-        _snap = _get_cached_snapshot(_snap_date)
+    if sh.get_snapshot(today_str):
+        _snap = _get_cached_snapshot(today_str)
+        _snap_date = today_str
         if _snap:
             tb = _snap.get("turn_bull", {})
             tr = _snap.get("trend", {})
@@ -78,10 +76,30 @@ if not st.session_state.pop("_refresh_requested", False):
                 st.session_state.trend_etf = tr.get("etfs", [])
                 st.session_state.trend_done = True
                 st.session_state.trend_date = _snap_date
-            if tb.get("stocks") or tb.get("etfs") or tr.get("stocks") or tr.get("etfs"):
+            _loaded_from_history = True
+    else:
+        _dates = sh.get_available_dates()
+        if _dates:
+            _snap = _get_cached_snapshot(_dates[0])
+            _snap_date = _dates[0]
+            if _snap:
+                tb = _snap.get("turn_bull", {})
+                tr = _snap.get("trend", {})
+                if tb.get("stocks") or tb.get("etfs"):
+                    st.session_state.bull_stock = tb.get("stocks", [])
+                    st.session_state.bull_etf = tb.get("etfs", [])
+                    st.session_state.bull_etf_done = True
+                    st.session_state.bull_stock_done = True
+                    st.session_state.bull_date = _snap_date
+                if tr.get("stocks") or tr.get("etfs"):
+                    st.session_state.trend_stock = tr.get("stocks", [])
+                    st.session_state.trend_etf = tr.get("etfs", [])
+                    st.session_state.trend_done = True
+                    st.session_state.trend_date = _snap_date
                 _loaded_from_history = True
-    if _loaded_from_history and _snap_date != today_str:
-        st.caption(f"📌 当前显示 {_snap_date} 数据（今日尚未扫描）")
+            st.caption(f"📌 当前显示 {_snap_date} 数据（今日尚未扫描）")
+        # auto-scan: no today data → run trend scan (also covers bull ETFs)
+        st.session_state.trend_done = False
 
 # ── 转牛ETF快速扫描（个股不在此处扫描） ────────────────────────────
 

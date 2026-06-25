@@ -31,13 +31,6 @@ start_date = get_start_date()
 
 render_header()
 
-# ── GitHub Token ────────────────────────────────────
-try:
-    if "GH_TOKEN" in st.secrets:
-        sh.set_gh_token(st.secrets["GH_TOKEN"])
-except Exception:
-    pass
-
 # ── 自动初始化 ──────────────────────────────────
 
 APP_VERSION = "v6"  # 修改此值即可触发容器重新初始化
@@ -53,14 +46,10 @@ if st.session_state.get("app_version") != APP_VERSION:
 
 # ── 从历史信号恢复最近数据（避免重复扫描） ─────────────────────
 
-@st.cache_data(ttl=86400)
-def _get_cached_snapshot(date):
-    return sh.get_snapshot(date)
-
 _loaded_from_history = False
 if not st.session_state.pop("_refresh_requested", False):
     if sh.get_snapshot(today_str):
-        _snap = _get_cached_snapshot(today_str)
+        _snap = sh.get_snapshot(today_str)
         _snap_date = today_str
         if _snap:
             tb = _snap.get("turn_bull", {})
@@ -80,7 +69,7 @@ if not st.session_state.pop("_refresh_requested", False):
     else:
         _dates = sh.get_available_dates()
         if _dates:
-            _snap = _get_cached_snapshot(_dates[0])
+            _snap = sh.get_snapshot(_dates[0])
             _snap_date = _dates[0]
             if _snap:
                 tb = _snap.get("turn_bull", {})
@@ -119,7 +108,7 @@ def run_turn_bull_scan():
         st.session_state.bull_etf_done = True
         st.session_state.bull_date = today_str
         sh.save_turn_bull_snapshot([], etf_signals)
-        _get_cached_snapshot.clear()
+        
         sh.sync_remote()
     finally:
         st.session_state.bull_scanning = False
@@ -166,7 +155,7 @@ def run_trend_scan():
         sh.save_turn_bull_snapshot([], bull_etf_signals)
         _trend_codes = {r["代码"] for r in stock_signals}
         st.session_state.trend_missed = sh.compute_and_save_today_missed(_trend_codes)
-        _get_cached_snapshot.clear()
+        
         sh.sync_remote()
     finally:
         st.session_state.trend_scanning = False

@@ -1,108 +1,79 @@
 """历史信号存储与读取"""
 import pickle
 import requests
-import os
-import base64
-import json
 from pathlib import Path
 from config import get_trading_date
 
 HISTORY_FILE = Path("data_cache") / "signal_history.pkl"
 MAX_DAYS = 10
-GITHUB_FALLBACK = "https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json"
-
-_KNOWN_BLOBS = [
-    "019ef990-0134-7fcb-a9d2-539aa7d4d092",
-    "019ef990-3330-7a20-8a18-ec69ee37275a",
-]
 
 _BLOB_ID_FILE = Path("data_cache") / "blob_id.txt"
-_ACTIVE_BLOB_ID = None
-_GH_TOKEN = os.environ.get("GH_TOKEN", "")
+_BLOB_IDS = ["019ef990-0134-7fcb-a9d2-539aa7d4d092", "019ef990-3330-7a20-8a18-ec69ee37275a"]
 
 
-def set_gh_token(token):
-    global _GH_TOKEN
-    _GH_TOKEN = token
+def _blob_url(bid):
+    return f"https://jsonblob.com/api/jsonBlob/{bid}"
 
 
-def _sync_github(data):
-    """Write history data to GitHub history-data branch using API."""
-    if not _GH_TOKEN or not data:
-        return
+def _read_blob(bid):
     try:
-        url = "https://api.github.com/repos/Hilixuan/stock-scanner/contents/history_data.json"
-        head_resp = requests.get(url + "?ref=history-data",
-                                 headers={"Authorization": f"token {_GH_TOKEN}"}, timeout=10)
-        sha = head_resp.json().get("sha", "") if head_resp.status_code == 200 else ""
-        content = base64.b64encode(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")).decode("utf-8")
-        body = {"message": "update history data", "content": content, "branch": "history-data"}
-        if sha:
-            body["sha"] = sha
-        resp = requests.put(url, json=body,
-                            headers={"Authorization": f"token {_GH_TOKEN}"}, timeout=15)
-        return resp.status_code in (200, 201)
-    except Exception:
-        return False
-
-
-def _blob_url(blob_id):
-    return f"https://jsonblob.com/api/jsonBlob/{blob_id}"
-
-
-def _read_blob(blob_id):
-    try:
-        resp = requests.get(_blob_url(blob_id), timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, dict) and data:
-                return data
+        r = requests.get(_blob_url(bid), timeout=8)
+        if r.status_code == 200:
+            d = r.json()
+            if isinstance(d, dict) and d:
+                return d
     except Exception:
         pass
     return None
 
 
-def _write_blob(blob_id, data):
+def _write_blob(bid, data):
     try:
-        resp = requests.put(_blob_url(blob_id), json=data, timeout=15)
-        return resp.status_code == 200
+        r = requests.put(_blob_url(bid), json=data, timeout=10)
+        return r.status_code == 200
     except Exception:
         return False
 
 
-def _seed_blob(data):
-    """Create a new blob with data and set it as the active blob."""
-    new_id = _create_blob(data)
-    if new_id:
-        global _ACTIVE_BLOB_ID
-        _ACTIVE_BLOB_ID = new_id
-
-
-def _create_blob(data=None):
+def _create_blob(data):
     try:
-        body = {} if data is None else data
-        resp = requests.post("https://jsonblob.com/api/jsonBlob", json=body, timeout=15)
-        if resp.status_code == 201:
-            loc = resp.headers.get("Location", "")
+        r = requests.post("https://jsonblob.com/api/jsonBlob", json=data, timeout=10)
+        if r.status_code == 201:
+            loc = r.headers.get("Location", "")
             new_id = loc.replace("/api/jsonBlob/", "")
             if new_id:
-                _BLOB_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
-                _BLOB_ID_FILE.write_text(new_id, encoding="utf-8")
-                global _ACTIVE_BLOB_ID
-                _ACTIVE_BLOB_ID = new_id
                 return new_id
     except Exception:
         pass
     return None
 
 
-def _active_blob():
-    global _ACTIVE_BLOB_ID
-    if _ACTIVE_BLOB_ID:
-        return _ACTIVE_BLOB_ID
-    if _BLOB_ID_FILE.exists():
-        _ACTIVE_BLOB_ID = _BLOB_ID_FILE.read_text(encoding="utf-8").strip()
-        return _ACTIVE_BLOB_ID
+def _save_blob(data):
+    """Try known blobs, create new one if all dead."""
+    for bid in _BLOB_IDS:
+        if _write_blob(bid, data):
+            _write_id(bid)
+            return
+    new_id = _create_blob(data)
+    if new_id:
+        _BLOB_IDS.insert(0, new_id)
+        _write_id(new_id)
+
+
+def _write_id(bid):
+    try:
+        _BLOB_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _BLOB_ID_FILE.write_text(bid, encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _read_id():
+    try:
+        if _BLOB_ID_FILE.exists():
+            return _BLOB_ID_FILE.read_text(encoding="utf-8").strip()
+    except Exception:
+        pass
     return None
 
 
@@ -110,38 +81,36 @@ def _load():
     try:
         if HISTORY_FILE.exists():
             with open(HISTORY_FILE, "rb") as f:
-                data = pickle.load(f)
-                if isinstance(data, dict) and data:
-                    return data
+                d = pickle.load(f)
+                if isinstance(d, dict) and d:
+                    return d
     except Exception:
         pass
-    blob_id = _active_blob()
-    if blob_id:
-        data = _read_blob(blob_id)
-        if data:
-            return data
-    for bid in _KNOWN_BLOBS:
-        if bid == blob_id:
+    # try known blobs
+    tried = set()
+    bid = _read_id()
+    if bid:
+        tried.add(bid)
+        d = _read_blob(bid)
+        if d:
+            return d
+    for bid in _BLOB_IDS:
+        if bid in tried:
             continue
-        data = _read_blob(bid)
-        if data:
-            _BLOB_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
-            _BLOB_ID_FILE.write_text(bid, encoding="utf-8")
-            return data
+        d = _read_blob(bid)
+        if d:
+            _write_id(bid)
+            return d
+    # try raw GitHub fallback
     try:
-        resp = requests.get(GITHUB_FALLBACK, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, dict) and data:
-                _seed_blob(data)
-                return data
+        r = requests.get("https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json", timeout=8)
+        if r.status_code == 200:
+            d = r.json()
+            if isinstance(d, dict) and d:
+                _save_blob(d)
+                return d
     except Exception:
         pass
-    new_id = _create_blob()
-    if new_id:
-        data = _read_blob(new_id)
-        if data:
-            return data
     return {}
 
 
@@ -151,32 +120,17 @@ def _save(data):
     with open(tmp, "wb") as f:
         pickle.dump(data, f)
     tmp.replace(HISTORY_FILE)
-    _sync(data)
-    _sync_github(data)
+    _save_blob(data)
 
 
-def _sync(data):
-    if not data:
-        return
-    blob_id = _active_blob()
-    if blob_id and _write_blob(blob_id, data):
-        return
-    for bid in _KNOWN_BLOBS:
-        if bid == blob_id:
-            continue
-        if _write_blob(bid, data):
-            _BLOB_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
-            _BLOB_ID_FILE.write_text(bid, encoding="utf-8")
-            global _ACTIVE_BLOB_ID
-            _ACTIVE_BLOB_ID = bid
-            return
-    new_id = _create_blob(data)
-    if new_id:
-        pass
+def _clean(signals):
+    return [{k: v for k, v in s.items() if k != "_detail_df"} for s in signals]
 
 
-def sync_remote():
-    _sync(_load())
+def _trim(history):
+    dates = sorted(history.keys(), reverse=True)
+    for d in dates[MAX_DAYS:]:
+        del history[d]
 
 
 def save_turn_bull_snapshot(stocks, etfs):
@@ -197,12 +151,6 @@ def save_trend_snapshot(stocks, etfs):
     day["trend"]["etfs"] = _clean(etfs)
     _trim(history)
     _save(history)
-
-
-def _trim(history):
-    dates = sorted(history.keys(), reverse=True)
-    for d in dates[MAX_DAYS:]:
-        del history[d]
 
 
 def get_available_dates():
@@ -260,12 +208,7 @@ def compute_and_save_today_missed(today_trend_codes, date=None):
     return missed
 
 
-def _clean(signals):
-    return [{k: v for k, v in s.items() if k != "_detail_df"} for s in signals]
-
-
 def fetch_realtime_prices(codes):
-    """Fetch real-time 现价 and 涨跌幅 for given stock/ETF codes via Tencent qt API."""
     if not codes:
         return {}
     grouped = {"sh": [], "sz": []}

@@ -161,51 +161,41 @@ def get_snapshot(date):
     return _load().get(date)
 
 
-def get_today_ma5_above(codes, today_trend_codes):
-    if not codes or today_trend_codes is None:
-        return set()
-    candidates = [c for c in codes if c not in today_trend_codes]
+def fetch_today_ma5(code):
+    """Fetch today's close price and MA5 for a single stock. Returns (close, ma5) or None."""
+    try:
+        prefix = "sh" if code.startswith("6") else "sz"
+        url = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,10,qfq"
+        resp = requests.get(url, timeout=5)
+        data = resp.json()
+        days = data.get("data", {}).get(f"{prefix}{code}", {}).get("day", []) or \
+               data.get("data", {}).get(f"{prefix}{code}", {}).get("qfqday", [])
+        if not days or len(days) < 5:
+            return None
+        closes = [float(d[2]) for d in days[-5:]]
+        ma5 = round(sum(closes) / 5, 2)
+        return closes[-1], ma5
+    except Exception:
+        return None
+
+
+def get_missed_codes(codes, today_trend_codes):
+    """Return (sparked_set, {code: ma5_value}) for codes NOT in today's trend with close > MA5."""
+    if not codes:
+        return set(), {}
+    candidates = [c for c in codes if today_trend_codes is None or c not in today_trend_codes]
     if not candidates:
-        return set()
-    result = set()
+        return set(), {}
+    sparked = set()
+    ma5_map = {}
     for code in candidates:
-        try:
-            prefix = "sh" if code.startswith("6") else "sz"
-            url = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,10,qfq"
-            resp = requests.get(url, timeout=5)
-            data = resp.json()
-            days = data.get("data", {}).get(f"{prefix}{code}", {}).get("day", []) or \
-                   data.get("data", {}).get(f"{prefix}{code}", {}).get("qfqday", [])
-            if not days or len(days) < 5:
-                continue
-            closes = [float(d[2]) for d in days[-5:]]
-            ma5 = sum(closes) / 5
-            if closes[-1] > ma5:
-                result.add(code)
-        except Exception:
-            pass
-    return result
-
-
-def compute_and_save_today_missed(today_trend_codes, date=None):
-    if date is None:
-        from config import get_trading_date
-        date = get_trading_date()
-    history = _load()
-    if not history:
-        return set()
-    all_codes = set()
-    for day_data in history.values():
-        for key in ("turn_bull", "trend"):
-            for r in day_data.get(key, {}).get("stocks", []):
-                all_codes.add(r.get("代码"))
-    if not all_codes:
-        return set()
-    missed = get_today_ma5_above(all_codes, today_trend_codes)
-    if date in history:
-        history[date]["trend_missed"] = list(missed)
-        _save(history)
-    return missed
+        result = fetch_today_ma5(code)
+        if result:
+            close_val, ma5_val = result
+            ma5_map[code] = ma5_val
+            if close_val > ma5_val:
+                sparked.add(code)
+    return sparked, ma5_map
 
 
 def fetch_realtime_prices(codes):

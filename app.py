@@ -153,10 +153,6 @@ def run_trend_scan():
         st.session_state.bull_date = today_str
         sh.save_trend_snapshot(stock_signals, etf_signals)
         sh.save_turn_bull_snapshot([], bull_etf_signals)
-        _trend_codes = {r["代码"] for r in stock_signals}
-        st.session_state.trend_missed = sh.compute_and_save_today_missed(_trend_codes)
-        
-        sh.sync_remote()
     finally:
         st.session_state.trend_scanning = False
 
@@ -269,8 +265,6 @@ with tab_history:
     else:
         sel_date = st.selectbox("选择日期", dates, index=0)
         snap = sh.get_snapshot(sel_date)
-        today_snap = sh.get_snapshot(today_str)
-        trend_missed = set(today_snap.get("trend_missed", [])) if today_snap else set()
         if snap:
             tb_stocks = snap.get("turn_bull", {}).get("stocks", [])
             tb_etfs = snap.get("turn_bull", {}).get("etfs", [])
@@ -283,6 +277,16 @@ with tab_history:
                     _all_hist_codes.add(r.get("代码", ""))
             realtime = sh.fetch_realtime_prices(list(_all_hist_codes)) if _all_hist_codes else {}
 
+            # today's trend codes for spark logic
+            _today_snap = sh.get_snapshot(today_str)
+            _today_codes = set()
+            if _today_snap:
+                for k in ("trend", "turn_bull"):
+                    for t in ("stocks", "etfs"):
+                        for r in _today_snap.get(k, {}).get(t, []):
+                            _today_codes.add(r.get("代码", ""))
+            _sparked, _ma5_map = sh.get_missed_codes(list(_all_hist_codes), _today_codes) if _all_hist_codes else (set(), {})
+
             st.markdown(f"### 🔄 转牛信号 — {sel_date}")
             for label, items in [("个股", tb_stocks), ("ETF", tb_etfs)]:
                 st.markdown(f"**{label}** ({len(items)} 只)")
@@ -290,9 +294,10 @@ with tab_history:
                     rows = []
                     for r in items:
                         code = r.get('代码','')
-                        tag = "🔥" if code in trend_missed else ""
+                        tag = "🔥" if code in _sparked else ""
                         rt = realtime.get(code, {})
-                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": rt.get("现价", r.get('现价','')), "涨跌幅": rt.get("涨跌幅", r.get('涨跌幅','')), "MA5": r.get('MA5',''), "标记": tag})
+                        ma5 = _ma5_map.get(code, r.get('MA5',''))
+                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": rt.get("现价", r.get('现价','')), "涨跌幅": rt.get("涨跌幅", r.get('涨跌幅','')), "MA5": ma5, "标记": tag})
                     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
                 else:
                     st.caption("无")
@@ -304,7 +309,22 @@ with tab_history:
                     rows = []
                     for r in items:
                         code = r.get('代码','')
-                        tag = "🔥" if code in trend_missed else ""
+                        tag = "🔥" if code in _sparked else ""
+                        rt = realtime.get(code, {})
+                        ma5 = _ma5_map.get(code, r.get('MA5',''))
+                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": rt.get("现价", r.get('现价','')), "涨跌幅": rt.get("涨跌幅", r.get('涨跌幅','')), "MA5": ma5, "标记": tag})
+                    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+                else:
+                    st.caption("无")
+
+            st.markdown(f"### 📈 趋势信号 — {sel_date}")
+            for label, items in [("个股", tr_stocks), ("ETF", tr_etfs)]:
+                st.markdown(f"**{label}** ({len(items)} 只)")
+                if items:
+                    rows = []
+                    for r in items:
+                        code = r.get('代码','')
+                        tag = "🔥" if code in _missed else ""
                         rt = realtime.get(code, {})
                         rows.append({"代码": code, "名称": r.get('名称',''), "现价": rt.get("现价", r.get('现价','')), "涨跌幅": rt.get("涨跌幅", r.get('涨跌幅','')), "MA5": r.get('MA5',''), "标记": tag})
                     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)

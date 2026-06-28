@@ -34,11 +34,19 @@ def _disk_load(path):
 
 
 def _disk_save(data, path):
+    import tempfile, os
     _ensure_cache_dir()
-    tmp = path.with_suffix(".tmp")
-    with open(tmp, "wb") as f:
-        pickle.dump(data, f)
-    tmp.replace(path)
+    fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "wb") as f:
+            pickle.dump(data, f)
+        os.replace(tmp, path)
+    except:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def _cache_fresh(path, max_age_hours=12, min_bytes=100):

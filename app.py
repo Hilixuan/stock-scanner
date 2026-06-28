@@ -33,7 +33,7 @@ render_header()
 
 # ── 自动初始化 ──────────────────────────────────
 
-APP_VERSION = "v6"  # 修改此值即可触发容器重新初始化
+APP_VERSION = "v7"  # 修改此值即可触发容器重新初始化
 
 if st.session_state.get("app_version") != APP_VERSION:
     st.session_state.clear()
@@ -43,6 +43,10 @@ if st.session_state.get("app_version") != APP_VERSION:
     for f in Path("data_cache").glob("*.pkl"):
         if f.name != "signal_history.pkl":
             f.unlink()
+    for f in Path("data_cache").glob("*.tmp"):
+        f.unlink()
+    for f in Path("data_cache").glob("*.tmp.*"):
+        f.unlink()
 
 # ── 从历史信号恢复最近数据（避免重复扫描） ─────────────────────
 

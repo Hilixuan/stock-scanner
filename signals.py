@@ -200,7 +200,7 @@ def check_trend(df):
     latest = df.iloc[-1]
     today_above_ma5 = latest["收盘"] > latest["MA5"]
     today_chg_limit = -7 < latest.get("涨跌幅", 0) <= 10
-    return (above_ma5 >= 10 and above_ma15 == 13 and today_above_ma5 and today_chg_limit), df
+    return (above_ma5 >= 10 and above_ma15 >= 11 and today_above_ma5 and today_chg_limit), df
 
 
 def scan_trend_stocks(histories, stock_name_map):
@@ -240,7 +240,7 @@ def check_trend_etf(df):
     latest = df.iloc[-1]
     today_above_ma5 = latest["收盘"] > latest["MA5"]
     today_chg_limit = -7 < latest.get("涨跌幅", 0) <= 10
-    return (above_ma5 >= 10 and above_ma15 == 15 and today_above_ma5 and today_chg_limit), df
+    return (above_ma5 >= 10 and above_ma15 >= 13 and today_above_ma5 and today_chg_limit), df
 
 
 def scan_trend_etfs(etf_data):

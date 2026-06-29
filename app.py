@@ -321,16 +321,4 @@ with tab_history:
                 else:
                     st.caption("无")
 
-            st.markdown(f"### 📈 趋势信号 — {sel_date}")
-            for label, items in [("个股", tr_stocks), ("ETF", tr_etfs)]:
-                st.markdown(f"**{label}** ({len(items)} 只)")
-                if items:
-                    rows = []
-                    for r in items:
-                        code = r.get('代码','')
-                        tag = "🔥" if code in _missed else ""
-                        rt = realtime.get(code, {})
-                        rows.append({"代码": code, "名称": r.get('名称',''), "现价": rt.get("现价", r.get('现价','')), "涨跌幅": rt.get("涨跌幅", r.get('涨跌幅','')), "MA5": r.get('MA5',''), "标记": tag})
-                    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-                else:
-                    st.caption("无")
+

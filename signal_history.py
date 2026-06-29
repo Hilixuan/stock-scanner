@@ -116,21 +116,25 @@ def _load():
 
 def _save(data):
     import tempfile, os
-    # save to jsonblob first (real persistence)
-    _save_blob(data)
-    # then local cache (ephemeral, just for speed)
-    HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=str(HISTORY_FILE.parent))
+    # jsonblob is real persistence, local pickle is just speed cache
     try:
-        with os.fdopen(fd, "wb") as f:
-            pickle.dump(data, f)
-        os.replace(tmp, HISTORY_FILE)
-    except:
+        _save_blob(data)
+    except Exception:
+        pass
+    try:
+        HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=str(HISTORY_FILE.parent))
         try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+            with os.fdopen(fd, "wb") as f:
+                pickle.dump(data, f)
+            os.replace(tmp, HISTORY_FILE)
+        except:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+    except Exception:
+        pass
 
 
 def _clean(signals):

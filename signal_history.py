@@ -7,8 +7,8 @@ from config import get_trading_date
 HISTORY_FILE = Path("data_cache") / "signal_history.pkl"
 MAX_DAYS = 10
 
-_BLOB_ID_FILE = Path("data_cache") / "blob_id.txt"
-_BLOB_IDS = ["019ef990-0134-7fcb-a9d2-539aa7d4d092", "019ef990-3330-7a20-8a18-ec69ee37275a"]
+_KNOWN_IDS_FILE = Path("data_cache") / "blob_ids.txt"
+_HARDCODED_IDS = ["019ef990-0134-7fcb-a9d2-539aa7d4d092", "019ef990-3330-7a20-8a18-ec69ee37275a"]
 
 
 def _blob_url(bid):
@@ -48,33 +48,44 @@ def _create_blob(data):
     return None
 
 
+def _get_known_ids():
+    ids = []
+    try:
+        if _KNOWN_IDS_FILE.exists():
+            raw = _KNOWN_IDS_FILE.read_text(encoding="utf-8").strip()
+            ids = [i.strip() for i in raw.split("\n") if i.strip()]
+    except Exception:
+        pass
+    seen = set()
+    result = []
+    for bid in ids + _HARDCODED_IDS:
+        if bid not in seen:
+            seen.add(bid)
+            result.append(bid)
+    return result
+
+
+def _save_known_ids(ids):
+    try:
+        _KNOWN_IDS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _KNOWN_IDS_FILE.write_text("\n".join(ids), encoding="utf-8")
+    except Exception:
+        pass
+
+
 def _save_blob(data):
-    """Try known blobs, create new one if all dead."""
-    for bid in _BLOB_IDS:
+    ids = _get_known_ids()
+    wrote_any = False
+    for bid in ids:
         if _write_blob(bid, data):
-            _write_id(bid)
-            return
-    new_id = _create_blob(data)
-    if new_id:
-        _BLOB_IDS.insert(0, new_id)
-        _write_id(new_id)
-
-
-def _write_id(bid):
-    try:
-        _BLOB_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _BLOB_ID_FILE.write_text(bid, encoding="utf-8")
-    except Exception:
-        pass
-
-
-def _read_id():
-    try:
-        if _BLOB_ID_FILE.exists():
-            return _BLOB_ID_FILE.read_text(encoding="utf-8").strip()
-    except Exception:
-        pass
-    return None
+            wrote_any = True
+    if not wrote_any:
+        new_id = _create_blob(data)
+        if new_id:
+            ids.insert(0, new_id)
+            _save_known_ids(ids)
+    else:
+        _save_known_ids(ids)
 
 
 def _load():
@@ -86,22 +97,11 @@ def _load():
                     return d
     except Exception:
         pass
-    # try known blobs
-    tried = set()
-    bid = _read_id()
-    if bid:
-        tried.add(bid)
+    for bid in _get_known_ids():
         d = _read_blob(bid)
         if d:
+            _save_known_ids([bid] + [b for b in _get_known_ids() if b != bid])
             return d
-    for bid in _BLOB_IDS:
-        if bid in tried:
-            continue
-        d = _read_blob(bid)
-        if d:
-            _write_id(bid)
-            return d
-    # try raw GitHub fallback
     try:
         r = requests.get("https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json", timeout=8)
         if r.status_code == 200:
@@ -116,7 +116,6 @@ def _load():
 
 def _save(data):
     import tempfile, os
-    # jsonblob is real persistence, local pickle is just speed cache
     try:
         _save_blob(data)
     except Exception:

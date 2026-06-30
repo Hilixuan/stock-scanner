@@ -7,8 +7,10 @@ from config import get_trading_date
 HISTORY_FILE = Path("data_cache") / "signal_history.pkl"
 MAX_DAYS = 10
 
+import tempfile as _tempfile
 _KNOWN_IDS_FILE = Path("data_cache") / "blob_ids.txt"
-_HARDCODED_IDS = ["019ef990-0134-7fcb-a9d2-539aa7d4d092", "019ef990-3330-7a20-8a18-ec69ee37275a"]
+_KNOWN_IDS_FILE2 = Path(_tempfile.gettempdir()) / "stock_scanner_blob_ids.txt"
+_HARDCODED_IDS = ["019f1862-9f0f-767d-ae26-10b319cba539", "019ef990-0134-7fcb-a9d2-539aa7d4d092", "019ef990-3330-7a20-8a18-ec69ee37275a"]
 
 
 def _blob_url(bid):
@@ -50,12 +52,13 @@ def _create_blob(data):
 
 def _get_known_ids():
     ids = []
-    try:
-        if _KNOWN_IDS_FILE.exists():
-            raw = _KNOWN_IDS_FILE.read_text(encoding="utf-8").strip()
-            ids = [i.strip() for i in raw.split("\n") if i.strip()]
-    except Exception:
-        pass
+    for f in [_KNOWN_IDS_FILE, _KNOWN_IDS_FILE2]:
+        try:
+            if f.exists():
+                raw = f.read_text(encoding="utf-8").strip()
+                ids.extend([i.strip() for i in raw.split("\n") if i.strip()])
+        except Exception:
+            pass
     seen = set()
     result = []
     for bid in ids + _HARDCODED_IDS:
@@ -66,11 +69,13 @@ def _get_known_ids():
 
 
 def _save_known_ids(ids):
-    try:
-        _KNOWN_IDS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _KNOWN_IDS_FILE.write_text("\n".join(ids), encoding="utf-8")
-    except Exception:
-        pass
+    payload = "\n".join(ids)
+    for f in [_KNOWN_IDS_FILE, _KNOWN_IDS_FILE2]:
+        try:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(payload, encoding="utf-8")
+        except Exception:
+            pass
 
 
 def _save_blob(data):

@@ -10,7 +10,7 @@ MAX_DAYS = 10
 import tempfile as _tempfile
 _KNOWN_IDS_FILE = Path("data_cache") / "blob_ids.txt"
 _KNOWN_IDS_FILE2 = Path(_tempfile.gettempdir()) / "stock_scanner_blob_ids.txt"
-_HARDCODED_IDS = ["019f1862-9f0f-767d-ae26-10b319cba539", "019ef990-0134-7fcb-a9d2-539aa7d4d092", "019ef990-3330-7a20-8a18-ec69ee37275a"]
+_HARDCODED_IDS = ["019f1890-1f8a-7ea0-8fab-b62bfb231999", "019f1890-2ca3-7c52-b99c-b978f6be0f6e"]
 
 
 def _blob_url(bid):

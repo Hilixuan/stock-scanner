@@ -106,6 +106,7 @@ def _load():
         d = _read_blob(bid)
         if d:
             _save_known_ids([bid] + [b for b in _get_known_ids() if b != bid])
+            _write_blob(bid, d)  # renew expiry timer on every read
             return d
     try:
         r = requests.get("https://raw.githubusercontent.com/Hilixuan/stock-scanner/history-data/history_data.json", timeout=8)
